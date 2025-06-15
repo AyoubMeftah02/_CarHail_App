@@ -1,105 +1,75 @@
 import { useState, useEffect } from 'react';
-import { MapContainer, TileLayer, Marker, useMap, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer } from 'react-leaflet';
+import { useMapEvent } from 'react-leaflet';
 import { type LatLngExpression } from 'leaflet';
 import type { Driver, RideRequest, MapProps } from '@/types/ride-types';
-import L from 'leaflet';
-import car from '@/assets/car.svg';
+import UserLocationMarker from './UserLocationMarker';
+import DriverMarker from './DriverMarker';
+import PickupLocationInput from './PickupLocationInput';
+import DestinationLocationInput from './DestinationLocationInput';
+import { calculateFare } from '@/utils/mapUtils';
+import { Polyline } from 'react-leaflet';
 
-// Custom icons for different marker types
-const userIcon = new L.Icon({
-  iconUrl:
-    'data:image/svg+xml;base64,' +
-    btoa(`
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#3B82F6" width="24" height="24">
-      <circle cx="12" cy="12" r="10" fill="#3B82F6" stroke="white" stroke-width="2"/>
-      <circle cx="12" cy="12" r="4" fill="white"/>
-    </svg>
-  `),
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-  popupAnchor: [0, -12],
-});
+interface MapClickEvent {
+  latlng: {
+    lat: number;
+    lng: number;
+  };
+}
 
-const driverIcon = new L.Icon({
-  iconUrl: car,
-  iconSize: [24, 24],
-  iconAnchor: [12, 12],
-  popupAnchor: [0, -12],
-});
-
-const UserLocationMarker = ({
-  position,
+const MapClickHandler = ({
+  onClick,
 }: {
-  position: LatLngExpression | null;
+  onClick: (e: MapClickEvent) => void;
 }) => {
-  const map = useMap();
-  useEffect(() => {
-    if (position) {
-      map.flyTo(position, 17);
-    }
-  }, [position, map]);
-  if (!position) return null;
-  return (
-    <Marker position={position} icon={userIcon}>
-      <Popup>
-        <div className="text-center">
-          <strong>Your Location</strong>
-          <br />
-          <span className="text-sm text-gray-600">You are here</span>
-        </div>
-      </Popup>
-    </Marker>
-  );
+  useMapEvent('click', onClick);
+  return null;
 };
 
-const DriverMarker = ({
-  driver,
-  onSelect,
+// RouteLine component for displaying route between pickup and destination
+const RouteLine = ({
+  pickup,
+  destination,
 }: {
-  driver: Driver;
-  onSelect: (driver: Driver) => void;
+  pickup: LatLngExpression;
+  destination: LatLngExpression;
 }) => {
+  if (!pickup || !destination) return null;
   return (
-    <Marker position={driver.position} icon={driverIcon}>
-      <Popup>
-        <div className="text-center min-w-[200px]">
-          <strong className="text-lg">{driver.name}</strong>
-          <br />
-          <div className="text-sm text-gray-600 mt-1">
-            <div> {driver.rating}/5.0</div>
-            <div> {driver.carModel}</div>
-            <div> {driver.licensePlate}</div>
-            <div>⏱ {driver.eta} min away</div>
-          </div>
-          <button
-            onClick={() => onSelect(driver)}
-            className="mt-2 px-3 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600 transition-colors"
-          >
-            Select Driver
-          </button>
-        </div>
-      </Popup>
-    </Marker>
+    <Polyline positions={[pickup, destination]} color="#3B82F6" weight={5} />
   );
 };
 
 const MapComp = ({ userAccount }: MapProps) => {
+  console.log('MapComp rendering. Initial state:', { userAccount });
   const [userPosition, setUserPosition] = useState<LatLngExpression | null>(
     null,
   );
-  const [mapCenter, setMapCenter] = useState<LatLngExpression | null>(null);
+  const [mapCenter, setMapCenter] = useState<LatLngExpression | null>([
+    51.505, -0.09,
+  ]); // Default to London
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState<boolean>(false);
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [rideRequest, setRideRequest] = useState<RideRequest | null>(null);
   const [showDrivers, setShowDrivers] = useState<boolean>(false);
+  const [pickup, setPickup] = useState<LatLngExpression | null>(null);
+  const [destination, setDestination] = useState<LatLngExpression | null>(null);
+  const [fareDetails, setFareDetails] = useState<{
+    distance: string;
+    estimatedFare: string;
+    platformFee: string;
+    driverEarnings: string;
+  } | null>(null);
+  const [pickupQuery, setPickupQuery] = useState('');
+  const [destinationQuery, setDestinationQuery] = useState('');
 
   // Generate mock drivers around user location
   const generateMockDrivers = (userPos: LatLngExpression): Driver[] => {
     const [userLat, userLng] = Array.isArray(userPos)
       ? userPos
       : [userPos.lat, userPos.lng];
-    const mockDrivers: Driver[] = [
+    return [
       {
         id: '1',
         name: 'John Smith',
@@ -137,16 +107,18 @@ const MapComp = ({ userAccount }: MapProps) => {
         licensePlate: 'GHI-321',
       },
     ];
-    return mockDrivers;
   };
 
   // Handle driver selection
   const handleDriverSelect = (driver: Driver) => {
+    if (!pickup || !destination || !fareDetails) return;
     const newRideRequest: RideRequest = {
       id: Date.now().toString(),
       status: 'matched',
       driver,
-      estimatedFare: Math.round((driver.eta * 2.5 + 8) * 100) / 100,
+      estimatedFare: Number(fareDetails.estimatedFare),
+      pickup,
+      destination,
     };
     setRideRequest(newRideRequest);
     setShowDrivers(false);
@@ -158,6 +130,33 @@ const MapComp = ({ userAccount }: MapProps) => {
       alert('Please enable location first');
       return;
     }
+    if (!pickup || !destination) {
+      alert('Please select both pickup and destination locations');
+      return;
+    }
+    if (!fareDetails) {
+      alert('Fare calculation is required before requesting a ride');
+      return;
+    }
+
+    // Create ride request
+    const newRideRequest = {
+      id: Date.now().toString(),
+      pickup,
+      destination,
+      fare: fareDetails.estimatedFare,
+      status: 'searching' as const,
+      timestamp: new Date().toISOString(),
+    };
+
+    setRideRequest({
+      id: newRideRequest.id,
+      pickup: newRideRequest.pickup,
+      destination: newRideRequest.destination,
+      estimatedFare: Number(newRideRequest.fare),
+      status: newRideRequest.status,
+      timestamp: newRideRequest.timestamp,
+    });
     setShowDrivers(true);
     const mockDrivers = generateMockDrivers(userPosition);
     setDrivers(mockDrivers);
@@ -231,8 +230,9 @@ const MapComp = ({ userAccount }: MapProps) => {
         console.error('Error getting location:', error);
         clearTimeout(slowFetchTimeout);
         setLocationError(
-          'Error getting your location. Please ensure location services are enabled and permissions are granted.',
+          'Error getting your location. Please ensure location services are enabled and permissions are granted. Displaying default location.',
         );
+        setMapCenter([51.505, -0.09]); // Fallback to default location
         setIsLocating(false);
       },
       {
@@ -249,42 +249,83 @@ const MapComp = ({ userAccount }: MapProps) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // In map.tsx, useEffect for calculating fare when pickup or destination changes:
+  useEffect(() => {
+    if (pickup && destination) {
+      const details = calculateFare(pickup, destination); // calculateFare now returns the full fare breakdown
+      setFareDetails(details);
+    } else {
+      setFareDetails(null);
+    }
+  }, [pickup, destination]);
+
+  // For map click, use MapContainer's event system:
+  const handleMapClick = (e: MapClickEvent) => {
+    if (!pickup) {
+      setPickup([e.latlng.lat, e.latlng.lng]);
+    } else if (!destination) {
+      setDestination([e.latlng.lat, e.latlng.lng]);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-screen w-full p-5 box-border bg-gray-50">
-      <div className="mb-5 p-4 bg-white rounded-lg shadow-sm">
+    <div className="flex flex-col md:flex-row h-screen w-full p-5 box-border bg-gray-50">
+      {/* Left side: controls and info */}
+      <div className="w-full md:w-1/2 mb-5 md:mb-0 md:pr-4 flex flex-col">
         <h1 className="text-2xl font-bold text-gray-800 mb-2">
           Welcome to ########
         </h1>
         <p className="text-sm text-gray-600 mb-3">
           Connected wallet: {userAccount}
         </p>
-        <div className="flex flex-wrap gap-2 mb-3">
+        {/* Location Name Inputs */}
+        <div className="flex flex-col gap-2 mb-3">
+          <PickupLocationInput
+            pickup={pickup}
+            setPickup={setPickup}
+            pickupQuery={pickupQuery}
+            setPickupQuery={setPickupQuery}
+            userPosition={userPosition}
+          />
+          <DestinationLocationInput
+            destination={destination}
+            setDestination={setDestination}
+            destinationQuery={destinationQuery}
+            setDestinationQuery={setDestinationQuery}
+            userPosition={userPosition}
+          />
           <button
-            onClick={getUserLocation}
-            className="py-2.5 px-4 cursor-pointer bg-blue-600 text-white border-none rounded hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            disabled={isLocating}
+            className="py-1 px-3 bg-gray-200 rounded text-xs w-fit"
+            onClick={() => {
+              setPickup(null);
+              setDestination(null);
+              setFareDetails(null);
+              setPickupQuery('');
+              setDestinationQuery('');
+            }}
+            disabled={!pickup && !destination}
           >
-            {isLocating ? 'Locating...' : 'Get My Location'}
+            Reset Points
           </button>
-
-          {userPosition && !rideRequest && (
-            <button
-              onClick={requestRide}
-              className="py-2.5 px-4 cursor-pointer bg-green-600 text-white border-none rounded hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50"
-            >
-              Request Ride
-            </button>
-          )}
-
-          {rideRequest && (
-            <button
-              onClick={cancelRide}
-              className="py-2.5 px-4 cursor-pointer bg-red-600 text-white border-none rounded hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
-            >
-              Cancel Ride
-            </button>
-          )}
         </div>
+        {/* Fare Estimate */}
+        {fareDetails && (
+          <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
+            <div className="font-semibold text-yellow-700">Fare Estimate</div>
+            <div>Distance: {fareDetails.distance} km</div>
+            <div>
+              Total Fare:{' '}
+              <span className="font-mono">{fareDetails.estimatedFare} ETH</span>
+            </div>
+          </div>
+        )}
+        <button
+          onClick={requestRide}
+          className="py-3 px-6 mt-2 text-lg font-bold bg-green-600 text-white rounded shadow hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={!pickup || !destination || !fareDetails || !!rideRequest}
+        >
+          Request Ride
+        </button>
 
         {/* Ride Status Display */}
         {rideRequest && (
@@ -305,7 +346,7 @@ const MapComp = ({ userAccount }: MapProps) => {
                 <strong>ETA:</strong> {rideRequest.driver?.eta} minutes
               </p>
               <p>
-                <strong>Estimated Fare:</strong> ${rideRequest.estimatedFare}
+                <strong>Estimated Fare:</strong> {rideRequest.estimatedFare}
               </p>
             </div>
           </div>
@@ -323,7 +364,8 @@ const MapComp = ({ userAccount }: MapProps) => {
           </div>
         )}
       </div>
-      <div className="w-full h-[70vh] md:h-[80vh] relative">
+      {/* Right side: map */}
+      <div className="w-full md:w-1/2 h-[400px] md:h-[600px] relative">
         {mapCenter ? (
           <MapContainer
             center={mapCenter}
@@ -331,11 +373,21 @@ const MapComp = ({ userAccount }: MapProps) => {
             style={{ height: '100%', width: '100%' }}
             className="h-full w-full rounded-lg shadow-[0_2px_10px_rgba(0,0,0,0.1)] overflow-hidden"
           >
+            <MapClickHandler onClick={handleMapClick} />
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <UserLocationMarker position={userPosition} />
+
+            {/* Show pickup/destination markers */}
+            {pickup && <UserLocationMarker position={pickup} />}
+            {destination && <UserLocationMarker position={destination} />}
+
+            {/* Route polyline */}
+            {pickup && destination && (
+              <RouteLine pickup={pickup} destination={destination} />
+            )}
 
             {/* Show driver markers when searching for rides or when a ride is matched */}
             {(showDrivers || rideRequest) &&
@@ -349,29 +401,7 @@ const MapComp = ({ userAccount }: MapProps) => {
 
             {/* Highlight selected driver if ride is matched */}
             {rideRequest && rideRequest.driver && (
-              <Marker position={rideRequest.driver.position} icon={driverIcon}>
-                <Popup>
-                  <div className="text-center min-w-[200px]">
-                    <strong className="text-lg text-green-600">
-                      Your Driver
-                    </strong>
-                    <br />
-                    <strong className="text-lg">
-                      {rideRequest.driver.name}
-                    </strong>
-                    <br />
-                    <div className="text-sm text-gray-600 mt-1">
-                      <div> {rideRequest.driver.rating}/5.0</div>
-                      <div> {rideRequest.driver.carModel}</div>
-                      <div> {rideRequest.driver.licensePlate}</div>
-                      <div> {rideRequest.driver.eta} min away</div>
-                      <div className="mt-2 font-semibold text-green-600">
-                        Fare: ${rideRequest.estimatedFare}
-                      </div>
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
+              <DriverMarker driver={rideRequest.driver} onSelect={() => {}} />
             )}
           </MapContainer>
         ) : (

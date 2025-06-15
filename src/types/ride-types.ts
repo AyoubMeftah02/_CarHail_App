@@ -15,6 +15,9 @@ export interface RideRequest {
   status: 'searching' | 'matched' | 'pickup' | 'inProgress' | 'completed';
   driver?: Driver;
   estimatedFare: number;
+  pickup: LatLngExpression;
+  destination: LatLngExpression;
+  timestamp?: string; // Added timestamp property
 }
 
 export interface MapProps {
