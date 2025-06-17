@@ -3,7 +3,7 @@ import 'leaflet/dist/leaflet.css';
 import ReactDOM from 'react-dom/client';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Home from '@/_pages/home';
+import Home from '@/_pages/Home';
 import Authentication from '@/_pages/Authentication';
 import { WalletProvider, useWallet } from '@/providers/WalletProvider';
 

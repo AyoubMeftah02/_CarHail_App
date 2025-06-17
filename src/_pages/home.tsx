@@ -1,5 +1,5 @@
-import Navbar from '@/components/navbar';
-import Map from '@/components/map';
+import Navbar from '@/components/layout/Navbar';
+import Map from '@/components/map/Map';
 import { useWallet } from '@/providers/WalletProvider';
 
 const Home = () => {

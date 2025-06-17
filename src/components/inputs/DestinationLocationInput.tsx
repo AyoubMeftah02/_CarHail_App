@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { type LatLngExpression } from 'leaflet';
-import { geocodeLocation, sortSuggestionsByDistance } from '@/utils/mapUtils';
+import { searchLocation, type PhotonFeature } from '@/utils/locationServices';
 
 interface DestinationLocationInputProps {
   destination: LatLngExpression | null;
@@ -10,41 +10,48 @@ interface DestinationLocationInputProps {
   userPosition?: LatLngExpression | null;
 }
 
-interface GeocodeSuggestion {
-  lat: string;
-  lon: string;
-  display_name: string;
-  distance?: number;
-}
-
 const DestinationLocationInput: React.FC<DestinationLocationInputProps> = ({
   setDestination,
   destinationQuery,
   setDestinationQuery,
   userPosition,
 }) => {
-  const [destinationSuggestions, setDestinationSuggestions] = useState<GeocodeSuggestion[]>([]);
+  const [suggestions, setSuggestions] = useState<PhotonFeature[]>([]);
 
-  // Geocode destination
+  // Effect for fetching suggestions based on typed query
   useEffect(() => {
     if (destinationQuery.length < 3) {
-      setDestinationSuggestions([]);
+      setSuggestions([]);
       return;
     }
+
     const timeout = setTimeout(async () => {
-      const suggestions = await geocodeLocation(destinationQuery);
-      if (userPosition && suggestions.length > 0) {
-        const [userLat, userLon] = Array.isArray(userPosition) 
-          ? userPosition 
-          : [userPosition.lat, userPosition.lng];
-        const sortedSuggestions = sortSuggestionsByDistance(suggestions, userLat, userLon);
-        setDestinationSuggestions(sortedSuggestions);
-      } else {
-        setDestinationSuggestions(suggestions);
-      }
+      const [lat, lon] = userPosition
+        ? (Array.isArray(userPosition)
+            ? userPosition
+            : [userPosition.lat, userPosition.lng])
+        : [undefined, undefined];
+      
+      const results = await searchLocation(destinationQuery, lat, lon);
+      setSuggestions(results);
     }, 400);
+
     return () => clearTimeout(timeout);
   }, [destinationQuery, userPosition]);
+
+  const formatSuggestion = (feature: PhotonFeature): string => {
+    const { properties } = feature;
+    const parts = [
+      properties.street,
+      properties.housenumber,
+      properties.postcode,
+      properties.city,
+      properties.state,
+      properties.country,
+    ].filter(Boolean);
+    
+    return parts.join(', ');
+  };
 
   return (
     <div>
@@ -57,19 +64,20 @@ const DestinationLocationInput: React.FC<DestinationLocationInputProps> = ({
         onChange={(e) => setDestinationQuery(e.target.value)}
         autoComplete="off"
       />
-      {destinationSuggestions.length > 0 && (
+      {suggestions.length > 0 && (
         <ul className="bg-white border rounded shadow max-h-40 overflow-y-auto mt-1 z-10">
-          {destinationSuggestions.map((s, i) => (
+          {suggestions.map((suggestion, i) => (
             <li
               key={i}
               className="px-2 py-1 hover:bg-blue-100 cursor-pointer"
               onClick={() => {
-                setDestination([parseFloat(s.lat), parseFloat(s.lon)]);
-                setDestinationQuery(s.display_name);
-                setDestinationSuggestions([]);
+                const [lng, lat] = suggestion.geometry.coordinates;
+                setDestination([lat, lng]);
+                setDestinationQuery(formatSuggestion(suggestion));
+                setSuggestions([]);
               }}
             >
-              {s.display_name}
+              {formatSuggestion(suggestion)}
             </li>
           ))}
         </ul>

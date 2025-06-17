@@ -1,5 +1,5 @@
 import { Marker, Popup } from 'react-leaflet';
-import { type Driver } from '@/types/ride-types';
+import { type Driver } from '@/types/ride';
 import L from 'leaflet';
 import car from '@/assets/car.svg';
 
