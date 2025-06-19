@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { LatLngExpression } from 'leaflet';
 import type { Driver, RideRequest } from '@/types/ride';
-import { ratePerKm, platformFeeRate } from '@/utils/mapUtils';
+import { calculateFare, ratePerKm, platformFeeRate } from '@/utils/mapUtils';
 import { getRoute } from '@/utils/locationServices';
-import driversData from '@/data/drivers.json';
 
 interface MapLogicState {
   userPosition: LatLngExpression | null;
@@ -82,18 +81,44 @@ const useMapLogic = (): MapLogicState => {
       const [userLat, userLng] = Array.isArray(userPos)
         ? userPos
         : [userPos.lat, userPos.lng];
-      const offset = 0.002; // Reduced offset to tighten the zone of available drivers
-
-      return driversData.map((driver, index) => {
-        const positionOffset = index % 2 === 0 ? offset : -offset;
-        return {
-          ...driver,
-          position: [
-            userLat + positionOffset * (index + 1),
-            userLng + positionOffset * (index + 1),
-          ],
-        };
-      });
+      return [
+        {
+          id: '1',
+          name: 'John Smith',
+          position: [userLat + 0.005, userLng + 0.003],
+          rating: 4.8,
+          eta: 3,
+          carModel: 'Toyota Camry',
+          licensePlate: 'ABC-123',
+        },
+        {
+          id: '2',
+          name: 'Sarah Johnson',
+          position: [userLat - 0.003, userLng + 0.007],
+          rating: 4.9,
+          eta: 5,
+          carModel: 'Honda Civic',
+          licensePlate: 'XYZ-789',
+        },
+        {
+          id: '3',
+          name: 'Mike Davis',
+          position: [userLat + 0.008, userLng - 0.002],
+          rating: 4.7,
+          eta: 7,
+          carModel: 'Nissan Altima',
+          licensePlate: 'DEF-456',
+        },
+        {
+          id: '4',
+          name: 'Emily Chen',
+          position: [userLat - 0.006, userLng - 0.005],
+          rating: 4.9,
+          eta: 4,
+          carModel: 'Hyundai Elantra',
+          licensePlate: 'GHI-321',
+        },
+      ];
     },
     [],
   );

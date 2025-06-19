@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers, Contract, JsonRpcSigner } from 'ethers';
-import { EscrowState, WalletState, EscrowTransaction, EscrowHookReturn } from '../types/escrow.types';
+import {
+  EscrowState,
+  WalletState,
+  EscrowTransaction,
+  EscrowHookReturn,
+} from '../types/escrow.types';
 
 // Contract ABI - import from your contract artifacts
 const ESCROW_ABI = [
@@ -13,7 +18,7 @@ const ESCROW_ABI = [
   'function isCompleted() external view returns (bool)',
   'event Deposited(address indexed passenger, uint256 amount)',
   'event Released(address indexed driver, uint256 amount)',
-  'event Refunded(address indexed passenger, uint256 amount)'
+  'event Refunded(address indexed passenger, uint256 amount)',
 ];
 
 // Contract addresses for different networks
@@ -25,7 +30,9 @@ export function useEscrow(): EscrowHookReturn {
   const [signer, setSigner] = useState<JsonRpcSigner | null>(null);
   const [contract, setContract] = useState<Contract | null>(null);
   const [escrowState, setEscrowState] = useState<EscrowState | null>(null);
-  const [transactions, setTransactions] = useState<Record<string, EscrowTransaction>>({});
+  const [transactions, setTransactions] = useState<
+    Record<string, EscrowTransaction>
+  >({});
   const [walletState, setWalletState] = useState<WalletState>({
     address: null,
     chainId: null,
@@ -35,19 +42,22 @@ export function useEscrow(): EscrowHookReturn {
   });
 
   // Initialize ethers provider and contract
-  const initializeContract = useCallback(async (chainId: number, signerInstance: JsonRpcSigner) => {
-    const address = CONTRACT_ADDRESSES[chainId];
-    if (!address) {
-      throw new Error('Contract not deployed on this network');
-    }
-    return new ethers.Contract(address, ESCROW_ABI, signerInstance);
-  }, []);
+  const initializeContract = useCallback(
+    async (chainId: number, signerInstance: JsonRpcSigner) => {
+      const address = CONTRACT_ADDRESSES[chainId];
+      if (!address) {
+        throw new Error('Contract not deployed on this network');
+      }
+      return new ethers.Contract(address, ESCROW_ABI, signerInstance);
+    },
+    [],
+  );
 
   // Connect wallet
   const connectWallet = async () => {
     try {
-      setWalletState(prev => ({ ...prev, isConnecting: true, error: null }));
-      
+      setWalletState((prev) => ({ ...prev, isConnecting: true, error: null }));
+
       if (!window.ethereum) {
         throw new Error('MetaMask not installed');
       }
@@ -58,7 +68,10 @@ export function useEscrow(): EscrowHookReturn {
       const { chainId } = await provider.getNetwork();
 
       setSigner(signerInstance);
-      const contractInstance = await initializeContract(chainId, signerInstance);
+      const contractInstance = await initializeContract(
+        chainId,
+        signerInstance,
+      );
       setContract(contractInstance);
 
       setWalletState({
@@ -69,17 +82,22 @@ export function useEscrow(): EscrowHookReturn {
         error: null,
       });
     } catch (error) {
-      setWalletState(prev => ({
+      setWalletState((prev) => ({
         ...prev,
         isConnecting: false,
-        error: error instanceof Error ? error.message : 'Failed to connect wallet',
+        error:
+          error instanceof Error ? error.message : 'Failed to connect wallet',
       }));
     }
   };
 
   // Update transaction status
-  const updateTransaction = (hash: string, status: 'pending' | 'success' | 'failed', error?: string) => {
-    setTransactions(prev => ({
+  const updateTransaction = (
+    hash: string,
+    status: 'pending' | 'success' | 'failed',
+    error?: string,
+  ) => {
+    setTransactions((prev) => ({
       ...prev,
       [hash]: { hash, status, error },
     }));
@@ -88,7 +106,7 @@ export function useEscrow(): EscrowHookReturn {
   // Contract interaction methods
   const depositForRide = async (amount: bigint) => {
     if (!contract || !signer) throw new Error('Contract not initialized');
-    
+
     try {
       const tx = await contract.deposit({ value: amount });
       updateTransaction(tx.hash, 'pending');
@@ -96,7 +114,8 @@ export function useEscrow(): EscrowHookReturn {
       updateTransaction(tx.hash, 'success');
       await getEscrowStatus();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Transaction failed';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Transaction failed';
       updateTransaction(error.transaction?.hash, 'failed', errorMessage);
       throw error;
     }
@@ -104,7 +123,7 @@ export function useEscrow(): EscrowHookReturn {
 
   const approvePayment = async () => {
     if (!contract || !signer) throw new Error('Contract not initialized');
-    
+
     try {
       const tx = await contract.approveRelease();
       updateTransaction(tx.hash, 'pending');
@@ -112,7 +131,8 @@ export function useEscrow(): EscrowHookReturn {
       updateTransaction(tx.hash, 'success');
       await getEscrowStatus();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Transaction failed';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Transaction failed';
       updateTransaction(error.transaction?.hash, 'failed', errorMessage);
       throw error;
     }
@@ -120,7 +140,7 @@ export function useEscrow(): EscrowHookReturn {
 
   const requestRefund = async () => {
     if (!contract || !signer) throw new Error('Contract not initialized');
-    
+
     try {
       const tx = await contract.refund();
       updateTransaction(tx.hash, 'pending');
@@ -128,7 +148,8 @@ export function useEscrow(): EscrowHookReturn {
       updateTransaction(tx.hash, 'success');
       await getEscrowStatus();
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Transaction failed';
+      const errorMessage =
+        error instanceof Error ? error.message : 'Transaction failed';
       updateTransaction(error.transaction?.hash, 'failed', errorMessage);
       throw error;
     }
@@ -136,7 +157,7 @@ export function useEscrow(): EscrowHookReturn {
 
   const getEscrowStatus = async (): Promise<EscrowState> => {
     if (!contract) throw new Error('Contract not initialized');
-    
+
     const [passenger, driver, amount, isCompleted] = await Promise.all([
       contract.passenger(),
       contract.driver(),
@@ -155,7 +176,11 @@ export function useEscrow(): EscrowHookReturn {
 
     const handleAccountsChanged = async (accounts: string[]) => {
       if (accounts.length === 0) {
-        setWalletState(prev => ({ ...prev, isConnected: false, address: null }));
+        setWalletState((prev) => ({
+          ...prev,
+          isConnected: false,
+          address: null,
+        }));
       } else if (accounts[0] !== walletState.address) {
         await connectWallet();
       }

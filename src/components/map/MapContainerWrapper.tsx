@@ -162,7 +162,7 @@ const MapContainerWrapper: React.FC<MapContainerWrapperProps> = ({
               <DriverMarker
                 key={`driver-${driver.id}`}
                 driver={driver}
-                onSelect={handleDriverSelect}
+                onSelect={() => handleDriverSelect(driver)}
               />
             ))}
 

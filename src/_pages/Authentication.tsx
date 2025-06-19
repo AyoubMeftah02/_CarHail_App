@@ -38,77 +38,63 @@ const Authentication = ({ onAuthenticated }: AuthenticationProps) => {
       setSelectedWallet(providerWithInfo);
       const userAccount = accounts?.[0];
       clearError(); // Clear any previous errors on successful connection
-      
+
       // Call the callback to notify parent component of successful authentication
       if (userAccount) {
         onAuthenticated(userAccount);
       }
     } catch (error) {
       console.error('Connection Error:', error);
-      // Assert the error object to the MMError interface to access code and message
-      // It's good practice to ensure 'error' actually matches this structure in a real app
       const mmError: MMError = error as MMError;
       setError(`Code: ${mmError.code} \n Error Message: ${mmError.message}`);
     }
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-6 bg-gray-50">
-      {/* Section to display detected wallet providers */}
-      <h2 className="text-2xl font-bold mb-6 text-gray-800">Connect Your Wallet to Continue</h2>
-      <div className="w-full max-w-md grid gap-4 mb-6">
-        {providers.length > 0 ? (
-          providers?.map((provider: EIP6963ProviderDetail) => (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-8 px-4">
+      <div className="w-full max-w-md bg-white rounded-lg shadow-lg p-8">
+        <h2 className="text-2xl font-bold text-center text-gray-800 mb-6">
+          Connect Your Wallet to Continue
+        </h2>
+        <div className="grid gap-4 mb-6">
+          {providers.length > 0 ? (
+            providers?.map((provider: EIP6963ProviderDetail) => (
+              <button
+                key={provider.info.uuid}
+                onClick={() => handleConnect(provider)}
+                className="flex items-center w-full px-4 py-3 border border-gray-200 rounded-lg shadow-sm bg-gray-100 hover:bg-blue-50 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <img
+                  src={provider.info.icon}
+                  alt={provider.info.name}
+                  className="w-8 h-8 mr-3"
+                />
+                <span className="font-medium text-gray-700">
+                  {provider.info.name}
+                </span>
+              </button>
+            ))
+          ) : (
+            <div className="text-blue-700 bg-blue-50 border border-blue-200 rounded p-3 text-center">
+              No Announced Wallet Providers
+            </div>
+          )}
+        </div>
+        {isError && (
+          <div className="bg-red-50 border border-red-200 text-red-700 rounded p-4 mb-4">
+            <div className="font-bold mb-1">Error</div>
+            <p className="whitespace-pre-line">{errorMessage}</p>
             <button
-              key={provider.info.uuid}
-              onClick={() => handleConnect(provider)}
-              className="flex items-center justify-center gap-3 p-4 bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow border border-gray-200"
+              onClick={clearError}
+              className="mt-2 px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
             >
-              <img
-                src={provider.info.icon}
-                alt={provider.info.name}
-                className="w-8 h-8"
-              />
-              <div className="font-medium text-gray-700">{provider.info.name}</div>
+              Dismiss
             </button>
-          ))
-        ) : (
-          <div className="p-4 text-center text-gray-500 bg-gray-100 rounded-lg">
-            {/* Message displayed when no providers are detected */}
-            No Announced Wallet Providers
           </div>
         )}
       </div>
-
-      {/* Section to display error messages */}
-      {isError && (
-        <div className="w-full max-w-md bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded cursor-pointer" onClick={clearError}>
-          <div>
-            <strong className="font-bold">Error:</strong> {errorMessage}
-            <div className="text-3xl mt-1 text-red">(click to dismiss)</div>
-          </div>
-        </div>
-      )}
     </div>
-  );}
-
+  );
+};
 
 export default Authentication;
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

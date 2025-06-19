@@ -1,0 +1,28 @@
+{
+  "cSpell.words": ["viem"],
+  "css.validate": false,
+  "editor.quickSuggestions": {
+    "strings": true
+  },
+  "tailwindCSS.includeLanguages": {
+    "plaintext": "html"
+  },
+  "editor.inlineSuggest.enabled": true,
+  "editor.suggest.snippetsPreventQuickSuggestions": false,
+  "editor.suggest.showKeywords": true,
+  "editor.suggest.showSnippets": true,
+  "editor.suggest.showWords": true,
+  "editor.suggest.showClasses": true,
+  "editor.suggest.showColors": true,
+  "editor.suggest.showConstants": true,
+  "editor.suggest.showEnums": true,
+  "editor.suggest.showFields": true,
+  "editor.suggest.showFunctions": true,
+  "editor.suggest.showInterfaces": true,
+  "editor.suggest.showModules": true,
+  "editor.suggest.showProperties": true,
+  "editor.suggest.showReferences": true,
+  "editor.suggest.showStructs": true,
+  "editor.suggest.showTypeParameters": true,
+  "editor.suggest.showVariables": true
+}

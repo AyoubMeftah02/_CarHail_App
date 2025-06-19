@@ -19,7 +19,9 @@ const PaymentActions: React.FC = () => {
       setError(null);
       await approvePayment();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to approve payment');
+      setError(
+        err instanceof Error ? err.message : 'Failed to approve payment',
+      );
     } finally {
       setIsLoading(false);
     }
@@ -41,9 +43,13 @@ const PaymentActions: React.FC = () => {
     return null;
   }
 
-  const isPassenger = walletState.address?.toLowerCase() === escrowState.passenger.toLowerCase();
-  const isDriver = walletState.address?.toLowerCase() === escrowState.driver.toLowerCase();
-  const isPending = Object.values(transactions).some(tx => tx.status === 'pending');
+  const isPassenger =
+    walletState.address?.toLowerCase() === escrowState.passenger.toLowerCase();
+  const isDriver =
+    walletState.address?.toLowerCase() === escrowState.driver.toLowerCase();
+  const isPending = Object.values(transactions).some(
+    (tx) => tx.status === 'pending',
+  );
 
   if (!isPassenger && !isDriver) {
     return null;
@@ -52,7 +58,9 @@ const PaymentActions: React.FC = () => {
   if (escrowState.isCompleted) {
     return (
       <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
-        <p className="text-center text-gray-600">This ride has been completed</p>
+        <p className="text-center text-gray-600">
+          This ride has been completed
+        </p>
       </div>
     );
   }
@@ -91,7 +99,10 @@ const PaymentActions: React.FC = () => {
 
       <div className="text-sm text-gray-500">
         {isPassenger ? (
-          <p>Approve payment to release funds to the driver after a successful ride</p>
+          <p>
+            Approve payment to release funds to the driver after a successful
+            ride
+          </p>
         ) : (
           <p>Request a refund if there are issues with the ride</p>
         )}

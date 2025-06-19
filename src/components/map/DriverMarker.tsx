@@ -1,7 +1,7 @@
 import { Marker, Popup } from 'react-leaflet';
 import { type Driver } from '@/types/ride';
 import L from 'leaflet';
-import car from '@/assets/car.svg';
+import car from '@/assets/car.png';
 
 const driverIcon = new L.Icon({
   iconUrl: car,

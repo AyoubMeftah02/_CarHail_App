@@ -4,12 +4,8 @@ import { useEscrow } from '@/hooks/useEscrow';
 import type { RideDetails } from '@/types/escrow.types';
 
 const RideBooking: React.FC = () => {
-  const {
-    walletState,
-    connectWallet,
-    depositForRide,
-    transactions,
-  } = useEscrow();
+  const { walletState, connectWallet, depositForRide, transactions } =
+    useEscrow();
 
   const [rideDetails, setRideDetails] = useState<RideDetails>({
     pickupLocation: '',
@@ -22,14 +18,14 @@ const RideBooking: React.FC = () => {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setRideDetails(prev => ({ ...prev, [name]: value }));
+    setRideDetails((prev) => ({ ...prev, [name]: value }));
   };
 
   const handleFareChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     try {
       const fareInEth = e.target.value;
       const fareInWei = ethers.parseEther(fareInEth);
-      setRideDetails(prev => ({ ...prev, estimatedFare: fareInWei }));
+      setRideDetails((prev) => ({ ...prev, estimatedFare: fareInWei }));
       setError(null);
     } catch (err) {
       setError('Invalid fare amount');
@@ -54,7 +50,9 @@ const RideBooking: React.FC = () => {
     }
   };
 
-  const isPending = Object.values(transactions).some(tx => tx.status === 'pending');
+  const isPending = Object.values(transactions).some(
+    (tx) => tx.status === 'pending',
+  );
 
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
@@ -72,7 +70,9 @@ const RideBooking: React.FC = () => {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-gray-700">Pickup Location</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Pickup Location
+          </label>
           <input
             type="text"
             name="pickupLocation"
@@ -84,7 +84,9 @@ const RideBooking: React.FC = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Destination</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Destination
+          </label>
           <input
             type="text"
             name="destination"
@@ -96,7 +98,9 @@ const RideBooking: React.FC = () => {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700">Fare (ETH)</label>
+          <label className="block text-sm font-medium text-gray-700">
+            Fare (ETH)
+          </label>
           <input
             type="number"
             step="0.001"
@@ -108,9 +112,7 @@ const RideBooking: React.FC = () => {
           />
         </div>
 
-        {error && (
-          <div className="text-red-600 text-sm">{error}</div>
-        )}
+        {error && <div className="text-red-600 text-sm">{error}</div>}
 
         <button
           type="submit"

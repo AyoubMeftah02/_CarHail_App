@@ -4,9 +4,6 @@ import PickupLocationInput from '@/components/inputs/PickupLocationInput';
 import DestinationLocationInput from '@/components/inputs/DestinationLocationInput';
 import { type RideRequest } from '@/types/ride';
 
-/**
- * FareDetails interface for ride cost breakdown
- */
 interface FareDetails {
   distance: string;
   estimatedFare: string;
@@ -15,12 +12,9 @@ interface FareDetails {
   duration: number;
 }
 
-/**
- * Props interface for MapControls component
- */
 interface MapControlsProps {
+  setFareDetails: (fareDetails: FareDetails | null) => void;
   userAccount: string;
-  userPosition: LatLngExpression | null;
   pickup: LatLngExpression | null;
   setPickup: (latlng: LatLngExpression | null) => void;
   destination: LatLngExpression | null;
@@ -30,21 +24,16 @@ interface MapControlsProps {
   destinationQuery: string;
   setDestinationQuery: (query: string) => void;
   fareDetails: FareDetails | null;
-  setFareDetails: (fareDetails: FareDetails | null) => void;
   requestRide: () => void;
   cancelRide: () => void;
   rideRequest: RideRequest | null;
   showDrivers: boolean;
+  userPosition: LatLngExpression | null;
 }
 
-/**
- * MapControls - Component for handling ride booking controls and fare estimation
- * Provides interface for users to input locations, view fare estimates, and manage ride requests
- */
 const MapControls: React.FC<MapControlsProps> = ({
   setFareDetails,
   userAccount,
-  userPosition,
   pickup,
   setPickup,
   destination,
@@ -58,6 +47,7 @@ const MapControls: React.FC<MapControlsProps> = ({
   cancelRide,
   rideRequest,
   showDrivers,
+  userPosition,
 }) => {
   return (
     <div className="w-full md:w-1/2 mb-5 md:mb-0 md:pr-4 flex flex-col">
@@ -67,8 +57,7 @@ const MapControls: React.FC<MapControlsProps> = ({
       <p className="text-sm text-gray-600 mb-3">
         Connected wallet: {userAccount}
       </p>
-      
-      {/* Location Input Section */}
+      {/* Location Name Inputs */}
       <div className="flex flex-col gap-2 mb-3">
         <PickupLocationInput
           pickup={pickup}
@@ -98,8 +87,7 @@ const MapControls: React.FC<MapControlsProps> = ({
           Reset Points
         </button>
       </div>
-
-      {/* Fare Estimate Section */}
+      {/* Fare Estimate */}
       {fareDetails && (
         <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
           <div className="font-semibold text-yellow-700">Fare Estimate</div>
@@ -108,23 +96,14 @@ const MapControls: React.FC<MapControlsProps> = ({
             Total Fare:{' '}
             <span className="font-mono">{fareDetails.estimatedFare} ETH</span>
           </div>
-          <div className="text-sm text-yellow-600 mt-1">
-            Platform Fee: {fareDetails.platformFee} ETH
-          </div>
-          <div className="text-sm text-yellow-600">
-            Driver Earnings: {fareDetails.driverEarnings} ETH
-          </div>
-          <div className="text-sm text-yellow-600">
-            Estimated Duration: {fareDetails.duration} minutes
-          </div>
         </div>
       )}
-
-      {/* Ride Request Controls */}
       <div className="flex gap-2">
         <button
           onClick={requestRide}
-          className="flex-1 py-3 px-6 mt-2 text-lg font-bold bg-green-600 text-white rounded shadow hover:bg-green-700 transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 disabled:opacity-50 disabled:cursor-not-allowed"
+           className="py-1.5 px-3 text-sm font-medium bg-green-600 
+           text-white rounded shadow hover:bg-green-700 transition-colors 
+           duration-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
           disabled={!pickup || !destination || !fareDetails || !!rideRequest}
         >
           Request Ride
@@ -132,7 +111,7 @@ const MapControls: React.FC<MapControlsProps> = ({
         {rideRequest && (
           <button
             onClick={cancelRide}
-            className="py-3 px-6 mt-2 text-lg font-bold bg-red-600 text-white rounded shadow hover:bg-red-700 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+            className="w-full py-2.5 px-4 mt-4 text-base font-semibold bg-red-600 text-white rounded-md shadow hover:bg-red-700 transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancel
           </button>
@@ -160,7 +139,7 @@ const MapControls: React.FC<MapControlsProps> = ({
                 <strong>ETA:</strong> {rideRequest.driver?.eta} minutes
               </p>
               <p>
-                <strong>Estimated Fare:</strong> {rideRequest.estimatedFare} ETH
+                <strong>Estimated Fare:</strong> {rideRequest.estimatedFare}
               </p>
             </div>
           </div>
