@@ -12,7 +12,7 @@ const Navbar = () => {
               to="/home"
               className="text-2xl font-bold tracking-tight text-white hover:text-blue-300 transition-colors"
             >
-              CarHail
+              ####
             </Link>
             <Link
               to="/home"

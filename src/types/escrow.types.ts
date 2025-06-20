@@ -1,4 +1,4 @@
-import { BigNumber } from 'ethers';
+type BigNumber = bigint;
 
 export interface EscrowState {
   passenger: string;
