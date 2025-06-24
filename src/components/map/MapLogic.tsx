@@ -51,7 +51,19 @@ interface MapLogicState {
   handleMapClick: (e: { latlng: { lat: number; lng: number } }) => void;
 }
 
-const useMapLogic = (): MapLogicState => {
+interface UseMapLogicProps {
+  initialPickup?: LatLngExpression | null;
+  initialDestination?: LatLngExpression | null;
+  initialPickupQuery?: string;
+  initialDestinationQuery?: string;
+}
+
+const useMapLogic = ({
+  initialPickup = null,
+  initialDestination = null,
+  initialPickupQuery = '',
+  initialDestinationQuery = '',
+}: UseMapLogicProps = {}): MapLogicState => {
   const [userPosition, setUserPosition] = useState<LatLngExpression | null>(
     null,
   );
@@ -63,8 +75,8 @@ const useMapLogic = (): MapLogicState => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [rideRequest, setRideRequest] = useState<RideRequest | null>(null);
   const [showDrivers, setShowDrivers] = useState<boolean>(false);
-  const [pickup, setPickup] = useState<LatLngExpression | null>(null);
-  const [destination, setDestination] = useState<LatLngExpression | null>(null);
+  const [pickup, setPickup] = useState<LatLngExpression | null>(initialPickup);
+  const [destination, setDestination] = useState<LatLngExpression | null>(initialDestination);
   const [fareDetails, setFareDetails] = useState<{
     distance: string;
     estimatedFare: string;
@@ -72,8 +84,8 @@ const useMapLogic = (): MapLogicState => {
     driverEarnings: string;
     duration: number;
   } | null>(null);
-  const [pickupQuery, setPickupQuery] = useState('');
-  const [destinationQuery, setDestinationQuery] = useState('');
+  const [pickupQuery, setPickupQuery] = useState(initialPickupQuery);
+  const [destinationQuery, setDestinationQuery] = useState(initialDestinationQuery);
 
   // Generate mock drivers around user location
   const generateMockDrivers = useCallback(

@@ -1,10 +1,7 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-/**
- * @title Escrow
- * @dev A simple escrow contract for a car-hailing DApp
- */
+
 contract Escrow {
     address public passenger;
     address public driver;
@@ -39,17 +36,13 @@ contract Escrow {
         driver = _driver;
     }
 
-    /**
-     * @dev Deposit ETH into escrow
-     */
+  
     function deposit() external payable onlyPassenger notCompleted {
         amount += msg.value;
         emit Deposited(msg.sender, msg.value);
     }
 
-    /**
-     * @dev Approve release of funds to the driver
-     */
+
     function approveRelease() external onlyPassenger notCompleted {
         isCompleted = true;
         (bool success, ) = driver.call{value: amount}("");
@@ -57,9 +50,6 @@ contract Escrow {
         emit Released(driver, amount);
     }
 
-    /**
-     * @dev Refund the passenger
-     */
     function refund() external onlyDriver notCompleted {
         isCompleted = true;
         (bool success, ) = passenger.call{value: amount}("");

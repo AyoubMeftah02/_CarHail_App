@@ -3,11 +3,18 @@ import { type LatLngExpression } from 'leaflet';
 export interface Driver {
   id: string;
   name: string;
-  position: LatLngExpression;
   rating: number;
-  eta: number;
+  eta: number | string; // Can be number (minutes) or string (formatted time)
   carModel: string;
   licensePlate: string;
+  verified?: boolean;
+  image?: string;
+  initials?: string;
+  car?: string;
+  ipfsHash?: string;
+  // Map-related properties
+  position?: LatLngExpression;
+  price?: string;
 }
 
 export interface RideRequest {
@@ -22,4 +29,8 @@ export interface RideRequest {
 
 export interface MapProps {
   userAccount: string;
+  className?: string;
+  pickup?: LatLngExpression | null;
+  destination?: LatLngExpression | null;
+  userLocation?: LatLngExpression | null;
 }

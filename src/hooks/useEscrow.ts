@@ -1,11 +1,22 @@
 import { useState, useEffect, useCallback } from 'react';
 import { ethers, Contract, JsonRpcSigner } from 'ethers';
-import {
+import type {
   EscrowState,
   WalletState,
   EscrowTransaction,
   EscrowHookReturn,
 } from '../types/escrow.types';
+
+declare global {
+  interface Window {
+    ethereum?: {
+      isMetaMask?: boolean;
+      request: (request: { method: string; params?: any[] }) => Promise<any>;
+      on?: (event: string, callback: (...args: any[]) => void) => void;
+      removeListener?: (event: string, callback: (...args: any[]) => void) => void;
+    };
+  }
+}
 
 // Contract ABI - import from your contract artifacts
 const ESCROW_ABI = [
@@ -41,6 +52,11 @@ export function useEscrow(): EscrowHookReturn {
     error: null,
   });
 
+  // Convert bigint to number safely
+  const bigIntToNumber = (value: bigint): number => {
+    return Number(value.toString());
+  };
+
   // Initialize ethers provider and contract
   const initializeContract = useCallback(
     async (chainId: number, signerInstance: JsonRpcSigner) => {
@@ -65,7 +81,8 @@ export function useEscrow(): EscrowHookReturn {
       const provider = new ethers.BrowserProvider(window.ethereum);
       const signerInstance = await provider.getSigner();
       const address = await signerInstance.getAddress();
-      const { chainId } = await provider.getNetwork();
+      const { chainId: chainIdBigInt } = await provider.getNetwork();
+      const chainId = bigIntToNumber(chainIdBigInt);
 
       setSigner(signerInstance);
       const contractInstance = await initializeContract(
@@ -76,7 +93,7 @@ export function useEscrow(): EscrowHookReturn {
 
       setWalletState({
         address,
-        chainId: Number(chainId),
+        chainId: chainId,
         isConnected: true,
         isConnecting: false,
         error: null,

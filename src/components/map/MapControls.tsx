@@ -1,7 +1,6 @@
 import React from 'react';
 import { type LatLngExpression } from 'leaflet';
-import PickupLocationInput from '@/components/inputs/PickupLocationInput';
-import DestinationLocationInput from '@/components/inputs/DestinationLocationInput';
+import LocationInput from './LocationInput';
 import { type RideRequest } from '@/types/ride';
 
 interface FareDetails {
@@ -17,6 +16,7 @@ interface MapControlsProps {
   userAccount: string;
   pickup: LatLngExpression | null;
   setPickup: (latlng: LatLngExpression | null) => void;
+  userPosition: LatLngExpression | null;
   destination: LatLngExpression | null;
   setDestination: (latlng: LatLngExpression | null) => void;
   pickupQuery: string;
@@ -28,7 +28,6 @@ interface MapControlsProps {
   cancelRide: () => void;
   rideRequest: RideRequest | null;
   showDrivers: boolean;
-  userPosition: LatLngExpression | null;
 }
 
 const MapControls: React.FC<MapControlsProps> = ({
@@ -36,6 +35,7 @@ const MapControls: React.FC<MapControlsProps> = ({
   userAccount,
   pickup,
   setPickup,
+  userPosition,
   destination,
   setDestination,
   pickupQuery,
@@ -47,46 +47,9 @@ const MapControls: React.FC<MapControlsProps> = ({
   cancelRide,
   rideRequest,
   showDrivers,
-  userPosition,
 }) => {
   return (
     <div className="w-full md:w-1/2 mb-5 md:mb-0 md:pr-4 flex flex-col">
-      <h1 className="text-2xl font-bold text-gray-800 mb-2">
-        Welcome to ########
-      </h1>
-      <p className="text-sm text-gray-600 mb-3">
-        Connected wallet: {userAccount}
-      </p>
-      {/* Location Name Inputs */}
-      <div className="flex flex-col gap-2 mb-3">
-        <PickupLocationInput
-          pickup={pickup}
-          setPickup={setPickup}
-          pickupQuery={pickupQuery}
-          setPickupQuery={setPickupQuery}
-          userPosition={userPosition}
-        />
-        <DestinationLocationInput
-          destination={destination}
-          setDestination={setDestination}
-          destinationQuery={destinationQuery}
-          setDestinationQuery={setDestinationQuery}
-          userPosition={userPosition}
-        />
-        <button
-          className="py-1 px-3 bg-gray-200 rounded text-xs w-fit"
-          onClick={() => {
-            setPickup(null);
-            setDestination(null);
-            setFareDetails(null);
-            setPickupQuery('');
-            setDestinationQuery('');
-          }}
-          disabled={!pickup && !destination}
-        >
-          Reset Points
-        </button>
-      </div>
       {/* Fare Estimate */}
       {fareDetails && (
         <div className="mb-3 p-2 bg-yellow-50 border border-yellow-200 rounded">
@@ -99,15 +62,7 @@ const MapControls: React.FC<MapControlsProps> = ({
         </div>
       )}
       <div className="flex gap-2">
-        <button
-          onClick={requestRide}
-           className="py-1.5 px-3 text-sm font-medium bg-green-600 
-           text-white rounded shadow hover:bg-green-700 transition-colors 
-           duration-200 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap"
-          disabled={!pickup || !destination || !fareDetails || !!rideRequest}
-        >
-          Request Ride
-        </button>
+        
         {rideRequest && (
           <button
             onClick={cancelRide}

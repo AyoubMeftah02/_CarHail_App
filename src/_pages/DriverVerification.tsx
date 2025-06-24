@@ -3,15 +3,22 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import Tesseract from 'tesseract.js';
 import driversData from '@/data/drivers.json';
+import type { Driver } from '@/types/ride';
+import { 
+  addDriver,
+  verifyDriver,
+  isDriverVerified,
+  getVerifiedDriver,
+  type SensitiveDriverData
+} from '@/utils/driverVerification';
+import { parseDriverInfo } from '@/utils/ocrUtils';
 
-interface Driver {
-  id: string;
+interface DriverInfo {
   name: string;
-  rating: number;
-  eta: number;
-  carModel: string;
   licensePlate: string;
-  verified?: boolean;
+  carModel?: string;
+  car?: string;
+  initials?: string;
 }
 
 const DriverVerificationPage: React.FC = () => {
@@ -27,7 +34,15 @@ const DriverVerificationPage: React.FC = () => {
   const [drivers, setDrivers] = useState<Driver[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showManualEntry, setShowManualEntry] = useState(false);
+  const [isNewDriver, setIsNewDriver] = useState(false);
   const [manualDriverId, setManualDriverId] = useState('');
+  const [driverInfo, setDriverInfo] = useState<DriverInfo>({
+    name: '',
+    licensePlate: '',
+    carModel: '',
+    car: '',
+    initials: ''
+  });
 
   useEffect(() => {
     // Load drivers from JSON and add verification status
@@ -44,72 +59,241 @@ const DriverVerificationPage: React.FC = () => {
       setFile(selected);
       setImagePreview(URL.createObjectURL(selected));
       setOcrResult('');
-      setVerified(false);
+      setVerificationStatus('unverified');
     }
   };
 
-  const verifyDriver = (text: string) => {
-    setLoading(true);
-
-    // Try to find driver by ID or name in the OCR text
-    const foundDriver = drivers.find(
-      (driver) =>
-        text.toLowerCase().includes(driver.id.toLowerCase()) ||
-        text.toLowerCase().includes(driver.name.toLowerCase()),
-    );
-
-    if (foundDriver) {
-      setDriver(foundDriver);
-      setVerificationStatus('verified');
-      // Update the drivers list to mark this driver as verified
-      const updatedDrivers = drivers.map((d) =>
-        d.id === foundDriver.id ? { ...d, verified: true } : d,
+  const verifyDriverFromText = async (text: string): Promise<boolean> => {
+    try {
+      // Find driver by license plate or name in the OCR text
+      const foundDriver = drivers.find(
+        (driver) =>
+          text.toLowerCase().includes(driver.licensePlate.toLowerCase()) ||
+          text.toLowerCase().includes(driver.name.toLowerCase()),
       );
-      setDrivers(updatedDrivers);
-      // Store verification in localStorage
-      localStorage.setItem('verifiedDriver', JSON.stringify(foundDriver));
-    } else {
+
+      if (foundDriver) {
+        // If driver exists, verify them
+        const updatedDrivers = drivers.map(d => 
+          d.id === foundDriver.id ? { ...d, verified: true } : d
+        );
+        
+        setDrivers(updatedDrivers);
+        setDriver({ ...foundDriver, verified: true });
+        setVerificationStatus('verified');
+        localStorage.setItem('verifiedDriver', JSON.stringify({ ...foundDriver, verified: true }));
+        return true;
+      }
+      
+      // If driver not found, try to parse as new driver
+      const parsedInfo = parseDriverInfo(text);
+      if (parsedInfo) {
+        const newDriver: Driver = {
+          id: `driver-${Date.now()}`,
+          name: parsedInfo.name,
+          licensePlate: parsedInfo.licensePlate,
+          carModel: parsedInfo.carModel || 'Unknown Model',
+          rating: 5.0, // Default rating for new drivers
+          eta: 5, // Default ETA
+          verified: true,
+          image: `https://ui-avatars.com/api/?name=${encodeURIComponent(parsedInfo.name)}`,
+          initials: parsedInfo.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+        };
+
+        const updatedDrivers = [...drivers, newDriver];
+        setDrivers(updatedDrivers);
+        setDriver(newDriver);
+        setVerificationStatus('verified');
+        localStorage.setItem('verifiedDriver', JSON.stringify(newDriver));
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error verifying driver:', error);
       setVerificationStatus('failed');
-      setDriver(null);
+      return false;
     }
     setLoading(false);
   };
 
-  const handleVerify = () => {
+  const handleVerify = async () => {
     if (!file) return;
     setLoading(true);
 
-    Tesseract.recognize(file, 'eng', { logger: (m) => console.log(m) })
-      .then(({ data: { text } }) => {
-        setOcrResult(text);
-        verifyDriver(text);
-      })
-      .catch((err) => {
-        console.error(err);
-        setLoading(false);
+    try {
+      // Convert file to base64 for IPFS storage
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
       });
+
+      // Process the image with Tesseract
+      const { data: { text } } = await Tesseract.recognize(file, 'eng');
+      setOcrResult(text);
+      
+      // First try to verify against existing drivers
+      const isExistingDriver = await verifyDriverFromText(text);
+      
+      if (!isExistingDriver) {
+        // If not an existing driver, try to parse as new driver
+        const parsedInfo = parseDriverInfo(text);
+        
+        if (parsedInfo) {
+          // Prepare sensitive data for IPFS
+          const sensitiveData: SensitiveDriverData = {
+            licenseNumber: parsedInfo.licensePlate,
+            documentImage: fileBase64,
+            // Add more sensitive fields as needed
+          };
+
+          // Generate a random rating between 4.5 and 5.0 and ETA between 5-15 minutes
+          const driverData = {
+            name: parsedInfo.name,
+            licensePlate: parsedInfo.licensePlate,
+            carModel: parsedInfo.carModel || 'Unknown Model',
+            rating: Number((Math.random() * 0.5 + 4.5).toFixed(1)),
+            eta: Math.floor(Math.random() * 11) + 5,
+            image: `https://ui-avatars.com/api/?name=${encodeURIComponent(parsedInfo.name)}&background=random`,
+            initials: parsedInfo.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2),
+          };
+
+          // Add the new driver with sensitive data
+          const addedDriver = await addDriver(driverData, sensitiveData);
+          
+          // Update local state
+          setDriver(addedDriver);
+          setVerificationStatus('verified');
+          setDrivers(prev => [...prev, addedDriver]);
+          localStorage.setItem('verifiedDriver', JSON.stringify(addedDriver));
+        } else {
+          setVerificationStatus('failed');
+          // Couldn't parse required info, show manual form
+          setIsNewDriver(true);
+          setDriverInfo({
+            name: '',
+            licensePlate: '',
+            carModel: '',
+            car: '',
+            initials: ''
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Verification failed:', error);
+      setVerificationStatus('failed');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleManualVerification = () => {
+  const handleManualVerification = async (): Promise<void> => {
     if (!manualDriverId) return;
+    setLoading(true);
 
-    const foundDriver = drivers.find(
-      (driver) =>
-        driver.id === manualDriverId ||
-        driver.name.toLowerCase() === manualDriverId.toLowerCase(),
-    );
+    try {
+      // Try to find by ID first
+      let foundDriver = drivers.find(driver => driver.id === manualDriverId);
+      
+      // If not found by ID, try by name
+      if (!foundDriver) {
+        foundDriver = drivers.find(
+          driver => driver.name.toLowerCase() === manualDriverId.toLowerCase()
+        );
+      }
 
-    if (foundDriver) {
-      setDriver(foundDriver);
-      setVerificationStatus('verified');
-      const updatedDrivers = drivers.map((d) =>
-        d.id === foundDriver.id ? { ...d, verified: true } : d,
-      );
-      setDrivers(updatedDrivers);
-      localStorage.setItem('verifiedDriver', JSON.stringify(foundDriver));
-    } else {
+      if (foundDriver) {
+        // Verify existing driver
+        const verifiedDriver = verifyDriver(foundDriver.id, drivers);
+        if (verifiedDriver) {
+          setDriver(verifiedDriver);
+          setVerificationStatus('verified');
+          localStorage.setItem('verifiedDriver', JSON.stringify(verifiedDriver));
+        } else {
+          setVerificationStatus('failed');
+        }
+      } else {
+        // If driver not found, show manual entry form
+        setIsNewDriver(true);
+        setDriverInfo({
+          name: manualDriverId,
+          licensePlate: '',
+          carModel: '',
+          car: '',
+          initials: manualDriverId.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+        });
+      }
+    } catch (error) {
+      console.error('Manual verification failed:', error);
       setVerificationStatus('failed');
-      setDriver(null);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRegisterNewDriver = async () => {
+    if (!file) return;
+    setLoading(true);
+
+    try {
+      // Convert file to base64 for IPFS storage
+      const fileBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => resolve(reader.result as string);
+        reader.onerror = error => reject(error);
+      });
+
+      // Process the image with Tesseract
+      const { data: { text } } = await Tesseract.recognize(file, 'eng');
+      setOcrResult(text);
+
+      // Parse driver info from OCR text
+      const parsedInfo = parseDriverInfo(text);
+
+      if (parsedInfo) {
+        // Prepare sensitive data for IPFS
+        const sensitiveData: SensitiveDriverData = {
+          licenseNumber: parsedInfo.licensePlate,
+          documentImage: fileBase64,
+          // Add more sensitive fields as needed
+        };
+
+        // Generate a random rating between 4.5 and 5.0 and ETA between 5-15 minutes
+        const driverData = {
+          name: parsedInfo.name,
+          licensePlate: parsedInfo.licensePlate,
+          carModel: parsedInfo.carModel || 'Unknown Model',
+          rating: Number((Math.random() * 0.5 + 4.5).toFixed(1)),
+          eta: Math.floor(Math.random() * 11) + 5,
+          image: `https://ui-avatars.com/api/?name=${encodeURIComponent(parsedInfo.name)}&background=random`,
+          initials: parsedInfo.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2),
+        };
+
+        // Add the new driver with sensitive data
+        const addedDriver = await addDriver(driverData, sensitiveData);
+
+        // Set as verified
+        setDriver(addedDriver);
+        setVerificationStatus('verified');
+        localStorage.setItem('verifiedDriver', JSON.stringify(addedDriver));
+      } else {
+        setVerificationStatus('failed');
+        // Couldn't parse required info, show manual form
+        setIsNewDriver(true);
+        setDriverInfo({
+          name: '',
+          licensePlate: '',
+          carModel: '',
+          car: '',
+          initials: '',
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      setLoading(false);
     }
   };
 

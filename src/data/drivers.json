@@ -1,7 +1,7 @@
 [
   {
     "id": "1",
-    "name": "John Smith",
+    "name": "Ouahid El Ouazzani",
     "rating": 4.8,
     "eta": 3,
     "carModel": "Toyota Camry",
@@ -9,7 +9,7 @@
   },
   {
     "id": "2",
-    "name": "Sarah Johnson",
+    "name": "Omar El Oued",
     "rating": 4.9,
     "eta": 5,
     "carModel": "Honda Civic",
@@ -17,7 +17,7 @@
   },
   {
     "id": "3",
-    "name": "Mike Davis",
+    "name": "Jubair Binebine",
     "rating": 4.7,
     "eta": 7,
     "carModel": "Nissan Altima",
@@ -25,7 +25,7 @@
   },
   {
     "id": "4",
-    "name": "Emily Chen",
+    "name": "Tarik al-Ghumari",
     "rating": 4.9,
     "eta": 4,
     "carModel": "Hyundai Elantra",

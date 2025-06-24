@@ -4,6 +4,7 @@ import ReactDOM from 'react-dom/client';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Home from '@/_pages/Home';
+import BookRide from '@/_pages/BookRide';
 import PassengersPage from '@/_pages/Passengers';
 import DriverVerificationPage from '@/_pages/DriverVerification';
 import Authentication from '@/_pages/Authentication';
@@ -21,6 +22,7 @@ const AppRoutes = () => {
       {isAuthenticated ? (
         <>
           <Route path="/home" element={<Home />} />
+          <Route path="/book-ride" element={<BookRide />} />
           <Route path="/passengers" element={<PassengersPage />} />
           <Route path="/drivers" element={<DriverVerificationPage />} />
           <Route path="*" element={<Navigate to="/home" replace />} />

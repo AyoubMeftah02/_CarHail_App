@@ -91,6 +91,19 @@ const RouteLine = ({
   );
 };
 
+interface MapContainerWrapperProps {
+  mapCenter: LatLngExpression | null;
+  userPosition: LatLngExpression | null;
+  pickup: LatLngExpression | null;
+  destination: LatLngExpression | null;
+  drivers: Driver[];
+  rideRequest: RideRequest | null;
+  showDrivers: boolean;
+  handleMapClick: (e: MapClickEvent) => void;
+  handleDriverSelect: (driver: Driver) => void;
+  className?: string;
+}
+
 const MapContainerWrapper: React.FC<MapContainerWrapperProps> = ({
   mapCenter,
   userPosition,
@@ -101,21 +114,29 @@ const MapContainerWrapper: React.FC<MapContainerWrapperProps> = ({
   showDrivers,
   handleMapClick,
   handleDriverSelect,
+  className = '',
 }) => {
   const [mapError, setMapError] = useState<string | null>(null);
+  
+  // Debugging logs
+  console.log('MapContainerWrapper - mapCenter:', mapCenter);
+  console.log('MapContainerWrapper - userPosition:', userPosition);
+  console.log('MapContainerWrapper - pickup:', pickup);
+  console.log('MapContainerWrapper - destination:', destination);
+  console.log('MapContainerWrapper - drivers count:', drivers?.length);
 
   if (!mapCenter) {
     return (
-      <div className="w-full md:w-1/2 h-[400px] md:h-[600px] relative flex items-center justify-center bg-gray-100 rounded-lg">
+      <div className={`absolute inset-0 flex items-center justify-center bg-gray-50 ${className}`}>
         <p className="text-gray-600">Loading map...</p>
       </div>
     );
   }
 
   return (
-    <div className="w-full md:w-1/2 h-[400px] md:h-[600px] relative">
+    <div className={`absolute inset-0 ${className}`}>
       {mapError ? (
-        <div className="absolute inset-0 flex items-center justify-center bg-red-50 border border-red-200 rounded-lg z-[1000]">
+        <div className="absolute inset-0 flex items-center justify-center bg-red-50 border border-red-200 z-[1000] rounded">
           <div className="text-red-700 p-4">
             <h3 className="font-semibold mb-2">Map Error</h3>
             <p>{mapError}</p>
@@ -129,10 +150,10 @@ const MapContainerWrapper: React.FC<MapContainerWrapperProps> = ({
         </div>
       ) : (
         <MapContainer
-          center={mapCenter}
+          center={mapCenter || [51.505, -0.09]}
           zoom={13}
           style={{ height: '100%', width: '100%' }}
-          className="h-full w-full rounded-lg shadow-[0_2px_10px_rgba(0,0,0,0.1)] overflow-hidden"
+          zoomControl={false}
         >
           <MapClickHandler onClick={handleMapClick} />
           <TileLayer
