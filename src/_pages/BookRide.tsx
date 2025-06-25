@@ -1,20 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { 
-  MapPinIcon, 
-  ArrowLeftIcon, 
-  ClockIcon, 
-  UserIcon, 
-  StarIcon, 
+import {
+  MapPinIcon,
+  ArrowLeftIcon,
+  ClockIcon,
+  UserIcon,
+  StarIcon,
   ArrowRightIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import type { LatLngExpression } from 'leaflet';
 import Navbar from '@/components/layout/Navbar';
 import MapComp from '@/components/map/Map';
 import { useWallet } from '@/providers/WalletProvider';
 import type { Driver } from '@/types/ride';
-import { getDrivers } from '@/utils/driverVerification';
+import { loadVerifiedDrivers } from '@/utils/driverVerification';
 
 interface Location {
   lat: number;
@@ -41,8 +41,6 @@ const getInitials = (name: string) => {
     .toUpperCase();
 };
 
-
-
 const BookRide = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -50,32 +48,33 @@ const BookRide = () => {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [drivers, setDrivers] = useState<Driver[]>([]);
-  
-  // Load drivers from the driver verification utility
+
+  // Load drivers from the verified_drivers key in localStorage
   const loadDrivers = async (): Promise<Driver[]> => {
     try {
       setIsLoading(true);
-      
-      // Get all drivers from the driver verification utility
-      const allDrivers = getDrivers();
-      
+      // Get all drivers from the verified_drivers key
+      const allDrivers: Driver[] = loadVerifiedDrivers();
       // Filter for verified drivers and add any missing required fields
-      const verifiedDrivers = allDrivers
-        .filter((driver): driver is Driver & { verified: true } => !!driver.verified)
-        .map(driver => ({
+      const verifiedDrivers: Driver[] = allDrivers
+        .filter(
+          (driver): driver is Driver & { verified: true } => !!driver.verified,
+        )
+        .map((driver: Driver) => ({
           ...driver,
-          // Ensure required fields have defaults if not present
           price: driver.price || '0.005 ETH',
-          eta: typeof driver.eta === 'number' ? `${driver.eta} min` : (driver.eta || '5 min'),
-          image: driver.image || `https://ui-avatars.com/api/?name=${encodeURIComponent(driver.name)}&background=random`,
+          eta:
+            typeof driver.eta === 'number'
+              ? `${driver.eta} min`
+              : driver.eta || '5 min',
+          image:
+            driver.image ||
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(driver.name)}&background=random`,
           initials: driver.initials || getInitials(driver.name),
-          position: driver.position || [51.505, -0.09] as LatLngExpression,
+          position: driver.position || ([51.505, -0.09] as LatLngExpression),
           car: driver.car || driver.carModel || 'Car',
-        } as Driver));
-      
+        }));
       setDrivers(verifiedDrivers);
-      
-      // If there's only one verified driver, select it by default
       if (verifiedDrivers.length === 1) {
         setSelectedDriver(verifiedDrivers[0]);
       }
@@ -106,24 +105,26 @@ const BookRide = () => {
     userLocation?: { lat: number; lon: number };
   };
 
-
-
   const [searchQuery, setSearchQuery] = useState('');
 
   // Filter drivers based on search query
   const filteredDrivers = searchQuery
-    ? drivers.filter(driver =>
-        driver.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        driver.carModel?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        driver.licensePlate?.toLowerCase().includes(searchQuery.toLowerCase())
+    ? drivers.filter(
+        (driver) =>
+          driver.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          driver.carModel?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          driver.licensePlate
+            ?.toLowerCase()
+            .includes(searchQuery.toLowerCase()),
       )
     : drivers;
 
   // Set default map center to first driver's position or default location
-  const defaultMapCenter: LatLngExpression = filteredDrivers.length > 0 && filteredDrivers[0].position 
-    ? filteredDrivers[0].position 
-    : [51.505, -0.09];
-  
+  const defaultMapCenter: LatLngExpression =
+    filteredDrivers.length > 0 && filteredDrivers[0].position
+      ? filteredDrivers[0].position
+      : [51.505, -0.09];
+
   // Debugging logs
   console.log('BookRide - pickup:', pickup);
   console.log('BookRide - dropoff:', dropoff);
@@ -141,7 +142,7 @@ const BookRide = () => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <Navbar />
-      
+
       {/* Header with back button and trip summary */}
       <header className="bg-white border-b border-gray-100">
         <div className="container mx-auto px-4 py-4">
@@ -154,7 +155,9 @@ const BookRide = () => {
               <ArrowLeftIcon className="h-5 w-5 text-gray-600" />
             </button>
             <div className="ml-4 flex-1 min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 truncate">Available Rides</h1>
+              <h1 className="text-xl font-bold text-gray-900 truncate">
+                Available Rides
+              </h1>
               {pickup && dropoff && (
                 <div className="flex items-center text-sm text-gray-500 mt-1">
                   <span className="truncate">{pickup.name}</span>
@@ -175,25 +178,32 @@ const BookRide = () => {
             <div className="p-4 border-b border-gray-200 bg-white">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-lg font-semibold text-gray-900">Choose your driver</h2>
+                  <h2 className="text-lg font-semibold text-gray-900">
+                    Choose your driver
+                  </h2>
                   <p className="text-sm text-gray-500 mt-1">
-                    {filteredDrivers.length} {filteredDrivers.length === 1 ? 'driver' : 'drivers'} available
+                    {filteredDrivers.length}{' '}
+                    {filteredDrivers.length === 1 ? 'driver' : 'drivers'}{' '}
+                    available
                   </p>
                 </div>
-                <button 
+                <button
                   onClick={refreshDrivers}
                   className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
                   title="Refresh drivers"
                   disabled={isLoading}
                 >
-                  <ArrowPathIcon className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`} />
+                  <ArrowPathIcon
+                    className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`}
+                  />
                 </button>
               </div>
               <span className="text-sm text-gray-500">
-                {filteredDrivers.length} {filteredDrivers.length === 1 ? 'driver' : 'drivers'}
+                {filteredDrivers.length}{' '}
+                {filteredDrivers.length === 1 ? 'driver' : 'drivers'}
               </span>
             </div>
-            
+
             {/* Drivers list container with scroll */}
             <div className="overflow-y-auto h-[calc(100vh-180px)] pr-2">
               {!isLoading && drivers.length === 0 ? (
@@ -207,7 +217,10 @@ const BookRide = () => {
               ) : isLoading ? (
                 <div className="space-y-4">
                   {[1, 2, 3].map((i) => (
-                    <div key={i} className="animate-pulse bg-gray-100 rounded-xl p-4">
+                    <div
+                      key={i}
+                      className="animate-pulse bg-gray-100 rounded-xl p-4"
+                    >
                       <div className="flex items-center space-x-3">
                         <div className="h-12 w-12 rounded-full bg-gray-200"></div>
                         <div className="flex-1 space-y-2">
@@ -221,38 +234,46 @@ const BookRide = () => {
               ) : (
                 <>
                   {filteredDrivers.map((driver) => (
-                    <div 
+                    <div
                       key={driver.id}
                       onClick={() => handleSelectDriver(driver)}
                       className={`p-4 rounded-xl cursor-pointer transition-all duration-200 ${
-                        selectedDriver?.id === driver.id 
-                          ? 'bg-green-50 border-2 border-green-200' 
+                        selectedDriver?.id === driver.id
+                          ? 'bg-green-50 border-2 border-green-200'
                           : 'bg-white border border-gray-100 hover:border-green-100'
                       }`}
                     >
                       <div className="flex items-start">
-                        <div 
+                        <div
                           className={`h-12 w-12 rounded-full flex items-center justify-center text-white font-medium text-sm ${
-                            avatarColors[parseInt(driver.id) % avatarColors.length]
+                            avatarColors[
+                              parseInt(driver.id) % avatarColors.length
+                            ]
                           } flex-shrink-0`}
                         >
                           {driver.initials}
                         </div>
                         <div className="ml-3 flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <h3 className="font-medium text-gray-900">{driver.name}</h3>
+                            <h3 className="font-medium text-gray-900">
+                              {driver.name}
+                            </h3>
                             <div className="flex items-center bg-yellow-50 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full">
                               <StarIcon className="h-3 w-3 mr-1" />
                               <span>{driver.rating}</span>
                             </div>
                           </div>
-                          <p className="text-sm text-gray-500 mt-0.5">{driver.car}</p>
+                          <p className="text-sm text-gray-500 mt-0.5">
+                            {driver.car}
+                          </p>
                           <div className="mt-2 flex items-center justify-between">
                             <div className="flex items-center text-sm text-gray-600">
                               <ClockIcon className="h-4 w-4 mr-1.5 text-gray-400" />
                               <span>{driver.eta} away</span>
                             </div>
-                            <span className="text-base font-bold text-green-600">{driver.price}</span>
+                            <span className="text-base font-bold text-green-600">
+                              {driver.price}
+                            </span>
                           </div>
                         </div>
                       </div>
@@ -261,7 +282,9 @@ const BookRide = () => {
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              alert(`Ride confirmed with ${selectedDriver.name}!`);
+                              alert(
+                                `Ride confirmed with ${selectedDriver.name}!`,
+                              );
                             }}
                             className="w-full bg-green-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
                           >
@@ -278,15 +301,20 @@ const BookRide = () => {
           </div>
 
           {/* Right Column - Map */}
-          <div className="flex-1 relative bg-gray-100" style={{ height: 'calc(100vh - 120px)' }}>
+          <div
+            className="flex-1 relative bg-gray-100"
+            style={{ height: 'calc(100vh - 120px)' }}
+          >
             {userAccount ? (
               <div className="absolute inset-0 w-full h-full z-0">
-                <MapComp 
+                <MapComp
                   userAccount={userAccount}
                   className="w-full h-full"
                   pickup={pickup ? [pickup.lat, pickup.lon] : null}
                   destination={dropoff ? [dropoff.lat, dropoff.lon] : null}
-                  userLocation={userLocation ? [userLocation.lat, userLocation.lon] : null}
+                  userLocation={
+                    userLocation ? [userLocation.lat, userLocation.lon] : null
+                  }
                 />
               </div>
             ) : (
@@ -294,7 +322,7 @@ const BookRide = () => {
                 <p className="text-gray-600">Connecting to wallet...</p>
               </div>
             )}
-            
+
             {/* Location Pins Overlay */}
             <div className="absolute top-4 left-4 z-10">
               <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-3 max-w-xs">
@@ -318,35 +346,43 @@ const BookRide = () => {
                 </div>
               </div>
             </div>
-            
+
             {/* Driver Selection Card */}
             {selectedDriver && (
               <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 w-full max-w-md px-4">
                 <div className="bg-white rounded-xl shadow-xl overflow-hidden">
                   <div className="p-4">
                     <div className="flex items-start">
-                      <div 
+                      <div
                         className={`h-12 w-12 rounded-full flex items-center justify-center text-white font-medium text-sm ${
-                          avatarColors[parseInt(selectedDriver.id) % avatarColors.length]
+                          avatarColors[
+                            parseInt(selectedDriver.id) % avatarColors.length
+                          ]
                         } flex-shrink-0`}
                       >
                         {selectedDriver.initials}
                       </div>
                       <div className="ml-3 flex-1 min-w-0">
                         <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold text-gray-900">{selectedDriver.name}</h3>
+                          <h3 className="text-lg font-semibold text-gray-900">
+                            {selectedDriver.name}
+                          </h3>
                           <div className="flex items-center bg-yellow-50 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full">
                             <StarIcon className="h-3 w-3 mr-1" />
                             <span>{selectedDriver.rating}</span>
                           </div>
                         </div>
-                        <p className="text-sm text-gray-500 mt-0.5">{selectedDriver.car}</p>
+                        <p className="text-sm text-gray-500 mt-0.5">
+                          {selectedDriver.car}
+                        </p>
                         <div className="mt-2 flex items-center justify-between">
                           <div className="flex items-center text-sm text-gray-600">
                             <ClockIcon className="h-4 w-4 mr-1.5 text-gray-400" />
                             <span>{selectedDriver.eta} away</span>
                           </div>
-                          <span className="text-lg font-bold text-green-600">{selectedDriver.price}</span>
+                          <span className="text-lg font-bold text-green-600">
+                            {selectedDriver.price}
+                          </span>
                         </div>
                       </div>
                     </div>
@@ -359,7 +395,9 @@ const BookRide = () => {
                       Change Driver
                     </button>
                     <button
-                      onClick={() => alert(`Ride confirmed with ${selectedDriver.name}!`)}
+                      onClick={() =>
+                        alert(`Ride confirmed with ${selectedDriver.name}!`)
+                      }
                       className="px-6 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center"
                     >
                       <span>Confirm Ride</span>

@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import Navbar from '@/components/layout/Navbar';
 import Tesseract from 'tesseract.js';
 import type { Driver } from '@/types/ride';
-import { 
+import {
   addDriver,
   type SensitiveDriverData,
   parseDriverInfo,
   loadDrivers,
-  verifyDriverFromText
+  verifyDriverFromText,
+  saveDriverToStorage,
 } from '@/utils/driverVerification';
 
 type VerificationStatus = 'unverified' | 'verifying' | 'verified' | 'failed';
@@ -26,7 +27,7 @@ interface DriverVerificationState {
 
 const DriverVerification: React.FC = (): JSX.Element => {
   const navigate = useNavigate();
-  
+
   const [state, setState] = useState<DriverVerificationState>({
     file: null,
     imagePreview: '',
@@ -35,14 +36,26 @@ const DriverVerification: React.FC = (): JSX.Element => {
     driver: null,
     ocrResult: '',
     error: null,
-    drivers: []
+    drivers: [],
   });
 
-  const { file, imagePreview, verificationStatus, loading, driver, ocrResult, error, drivers } = state;
+  const {
+    file,
+    imagePreview,
+    verificationStatus,
+    loading,
+    driver,
+    ocrResult,
+    error,
+    drivers,
+  } = state;
 
-  const updateState = useCallback((updates: Partial<DriverVerificationState>) => {
-    setState(prev => ({ ...prev, ...updates }));
-  }, []);
+  const updateState = useCallback(
+    (updates: Partial<DriverVerificationState>) => {
+      setState((prev) => ({ ...prev, ...updates }));
+    },
+    [],
+  );
 
   // Load drivers on component mount
   useEffect(() => {
@@ -55,37 +68,40 @@ const DriverVerification: React.FC = (): JSX.Element => {
         updateState({ error: 'Failed to load driver data' });
       }
     };
-    
+
     loadDriverData();
   }, [updateState]);
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      updateState({
-        file: selectedFile,
-        imagePreview: URL.createObjectURL(selectedFile),
-        verificationStatus: 'unverified',
-        driver: null,
-        error: null,
-        ocrResult: ''
-      });
-    }
-  }, [updateState]);
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      if (e.target.files && e.target.files[0]) {
+        const selectedFile = e.target.files[0];
+        updateState({
+          file: selectedFile,
+          imagePreview: URL.createObjectURL(selectedFile),
+          verificationStatus: 'unverified',
+          driver: null,
+          error: null,
+          ocrResult: '',
+        });
+      }
+    },
+    [updateState],
+  );
 
   const handleVerify = useCallback(async () => {
     if (!file) {
       console.error('No file selected');
       return;
     }
-    
+
     console.log('Starting verification process...');
-    updateState({ 
+    updateState({
       loading: true,
       verificationStatus: 'verifying' as const,
-      error: null 
+      error: null,
     });
-    
+
     try {
       // Convert file to base64 for IPFS storage
       console.log('Converting file to base64...');
@@ -98,7 +114,7 @@ const DriverVerification: React.FC = (): JSX.Element => {
             reject(new Error('Failed to read file as base64'));
           }
         };
-        reader.onerror = error => {
+        reader.onerror = (error) => {
           console.error('FileReader error:', error);
           reject(error);
         };
@@ -107,27 +123,54 @@ const DriverVerification: React.FC = (): JSX.Element => {
 
       // Process the image with Tesseract
       console.log('Processing image with Tesseract...');
-      const { data: { text } } = await Tesseract.recognize(file, 'eng');
+      const {
+        data: { text },
+      } = await Tesseract.recognize(file, 'eng');
       console.log('OCR Text extracted:', text);
       updateState({ ocrResult: text });
-      
+
       // First try to verify against existing drivers
       console.log('Verifying driver from text...');
       const existingDriver = await verifyDriverFromText(text);
-      
-      if (existingDriver) {
-        console.log('Found existing driver:', existingDriver);
-        updateState({
-          driver: { ...existingDriver, verified: true },
-          verificationStatus: 'verified' as const,
-          loading: false
-        });
+      // Use a fuzzy matching strategy to find a similar driver if exact match is not found
+      let matchedDriver = null;
+      if (
+        existingDriver &&
+        typeof existingDriver === 'object' &&
+        !Array.isArray(existingDriver)
+      ) {
+        matchedDriver = existingDriver;
       } else {
-        console.log('No existing driver found, attempting to parse as new driver...');
+        // Try fuzzy matching by comparing OCR text with driver names and license plates
+        const lowerText = text.toLowerCase();
+        matchedDriver = drivers.find(
+          (d) =>
+            lowerText.includes(d.name.toLowerCase()) ||
+            lowerText.includes(d.licensePlate.toLowerCase()),
+        );
+      }
+
+      if (matchedDriver) {
+        console.log('Found matched driver:', matchedDriver);
+        // Save to localStorage as verified
+        saveDriverToStorage(matchedDriver);
+        updateState({
+          driver: { ...matchedDriver, verified: true },
+          verificationStatus: 'verified' as const,
+          loading: false,
+        });
+        // Optionally redirect after short delay
+        setTimeout(() => navigate('/dashboard'), 1500);
+      } else {
+        console.log(
+          'No matching driver found, attempting to parse as new driver...',
+        );
         const parsedInfo = parseDriverInfo(text);
-        
+
         if (!parsedInfo) {
-          throw new Error('Could not parse driver information from the provided image');
+          throw new Error(
+            'Could not parse driver information from the provided image',
+          );
         }
 
         // Create new driver data
@@ -138,39 +181,52 @@ const DriverVerification: React.FC = (): JSX.Element => {
           position: { lat: 0, lng: 0 },
           price: '0', // Convert to string to match type
           image: `https://ui-avatars.com/api/?name=${encodeURIComponent(parsedInfo.name)}&background=random`,
-          initials: parsedInfo.initials || parsedInfo.name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2)
+          initials:
+            parsedInfo.initials ||
+            parsedInfo.name
+              .split(' ')
+              .map((n) => n[0])
+              .join('')
+              .toUpperCase()
+              .substring(0, 2),
         };
 
         // Prepare sensitive data for IPFS
         const sensitiveData: SensitiveDriverData = {
           licenseNumber: parsedInfo.licensePlate,
           documentImage: fileBase64,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
         };
 
         console.log('Adding new driver with data:', newDriver);
-        
+
         // Add the new driver with sensitive data
         const addedDriver = await addDriver(newDriver, sensitiveData);
-        
+        // Save to localStorage as verified
+        saveDriverToStorage(addedDriver);
         // Update state with the new driver
-        updateState(prevState => ({
+        setState((prevState: DriverVerificationState) => ({
           ...prevState,
           driver: { ...addedDriver, verified: true },
           verificationStatus: 'verified' as const,
           loading: false,
-          drivers: [...prevState.drivers, addedDriver]
+          drivers: [...prevState.drivers, addedDriver],
         }));
+        // Optionally redirect after short delay
+        setTimeout(() => navigate('/dashboard'), 1500);
       }
     } catch (error) {
       console.error('Verification error:', error);
       updateState({
         verificationStatus: 'failed',
         loading: false,
-        error: error instanceof Error ? error.message : 'Failed to verify driver',
-        driver: null
+        error:
+          error instanceof Error ? error.message : 'Failed to verify driver',
+        driver: null,
       });
-      alert('Verification failed. Please ensure the image is clear and try again.');
+      alert(
+        'Verification failed. Please ensure the image is clear and try again.',
+      );
     }
   }, [file, updateState]);
 
@@ -206,9 +262,9 @@ const DriverVerification: React.FC = (): JSX.Element => {
         {imagePreview && (
           <div className="mb-6">
             <h3 className="text-sm font-medium text-gray-700 mb-2">Preview</h3>
-            <img 
-              src={imagePreview} 
-              alt="Driver's License Preview" 
+            <img
+              src={imagePreview}
+              alt="Driver's License Preview"
               className="max-w-full h-auto rounded-md border border-gray-200"
             />
           </div>
@@ -257,7 +313,9 @@ const DriverVerification: React.FC = (): JSX.Element => {
         {/* OCR Result (for debugging) */}
         {process.env.NODE_ENV === 'development' && ocrResult && (
           <div className="mt-8 p-4 bg-gray-50 rounded-md">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">OCR Result (Debug)</h3>
+            <h3 className="text-sm font-medium text-gray-700 mb-2">
+              OCR Result (Debug)
+            </h3>
             <pre className="text-xs text-gray-600 whitespace-pre-wrap">
               {ocrResult}
             </pre>
