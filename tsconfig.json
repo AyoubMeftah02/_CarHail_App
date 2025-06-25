@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "target": "es2020",
-    "module": "commonjs",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "module": "esnext",
+    "moduleResolution": "node",
+    "jsx": "react-jsx",
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "forceConsistentCasingInFileNames": true,
@@ -12,12 +15,11 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "types": ["hardhat"]
+    "allowJs": true,
+    "noEmit": true,
+    "isolatedModules": true,
+    "noFallthroughCasesInSwitch": true
   },
-  "ts-node": {
-    "esm": false,
-    "experimentalSpecifierResolution": "node"
-  },
-  "include": ["./scripts", "./test", "./typechain-types"],
-  "files": ["./hardhat.config.cts"]
+  "include": ["src"],
+  "exclude": ["node_modules"]
 }

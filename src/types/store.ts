@@ -16,7 +16,7 @@ export const store = {
   value: () => providers,
   
   subscribe: (callback: () => void) => {
-    function onAnnouncement(event: EIP6963AnnounceProviderEvent) {
+    const onAnnouncement = (event: EIP6963AnnounceProviderEvent) => {
       if (providers.map((p) => p.info.uuid).includes(event.detail.info.uuid))
         return;
       providers = [...providers, event.detail];

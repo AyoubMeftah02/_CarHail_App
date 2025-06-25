@@ -29,7 +29,7 @@ const paddingClasses = {
   lg: 'p-8',
 };
 
-export function Modal({
+export const Modal = ({
   isOpen,
   onClose,
   title,
@@ -37,7 +37,7 @@ export function Modal({
   initialFocus,
   size = 'md',
   padding = 'md',
-}: ModalProps) {
+}: ModalProps) => {
   return (
     <Transition.Root show={isOpen} as={Fragment}>
       <Dialog
@@ -105,7 +105,7 @@ interface ModalActionsProps {
   className?: string;
 }
 
-export function ModalActions({ children, className = '' }: ModalActionsProps) {
+export const ModalActions = ({ children, className = '' }: ModalActionsProps) => {
   return (
     <div className={`mt-5 sm:mt-6 flex justify-end space-x-3 ${className}`}>
       {children}
@@ -118,6 +118,6 @@ interface ModalContentProps {
   className?: string;
 }
 
-export function ModalContent({ children, className = '' }: ModalContentProps) {
+export const ModalContent = ({ children, className = '' }: ModalContentProps) => {
   return <div className={`mt-2 ${className}`}>{children}</div>;
 }

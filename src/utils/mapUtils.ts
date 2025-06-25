@@ -3,16 +3,16 @@ import { type LatLngExpression } from 'leaflet';
 export const ratePerKm = 0.0005; // ETH per km
 export const platformFeeRate = 0.05; // 5%
 
-export function toRad(x: number) {
+export const toRad = (x: number) => {
   return (x * Math.PI) / 180;
 }
 
-export function haversineDistance(
+export const haversineDistance = (
   lat1: number,
   lon1: number,
   lat2: number,
   lon2: number,
-) {
+) => {
   const R = 6371; // km
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
@@ -26,10 +26,10 @@ export function haversineDistance(
   return R * c;
 }
 
-export function calculateFare(
+export const calculateFare = (
   pickup: LatLngExpression,
   dest: LatLngExpression,
-) {
+) => {
   const [lat1, lon1] = Array.isArray(pickup)
     ? pickup
     : [pickup.lat, pickup.lng];
@@ -46,14 +46,14 @@ export function calculateFare(
   };
 }
 
-export function getLatLngArray(pos: LatLngExpression): [number, number] {
+export const getLatLngArray = (pos: LatLngExpression): [number, number] => {
   if (Array.isArray(pos)) return [pos[0], pos[1]];
   return [pos.lat, pos.lng];
 }
 
-export async function geocodeLocation(
+export const geocodeLocation = async (
   query: string,
-): Promise<Array<{ display_name: string; lat: string; lon: string }>> {
+): Promise<Array<{ display_name: string; lat: string; lon: string }>> => {
   if (!query) return [];
   const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`;
   const res = await fetch(url);
@@ -61,10 +61,10 @@ export async function geocodeLocation(
   return res.json();
 }
 
-export async function reverseGeocodeLocation(
+export const reverseGeocodeLocation = async (
   lat: number,
   lon: number,
-): Promise<Array<{ display_name: string; lat: string; lon: string }>> {
+): Promise<Array<{ display_name: string; lat: string; lon: string }>> => {
   const url = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`;
   const res = await fetch(url);
   if (!res.ok) return [];
@@ -78,11 +78,11 @@ export async function reverseGeocodeLocation(
 }
 
 
-export function sortSuggestionsByDistance(
+export const sortSuggestionsByDistance = (
   suggestions: Array<{ display_name: string; lat: string; lon: string }>,
   userLat: number,
   userLon: number,
-): Array<{ display_name: string; lat: string; lon: string; distance: number }> {
+): Array<{ display_name: string; lat: string; lon: string; distance: number }> => {
   return suggestions
     .map(suggestion => ({
       ...suggestion,

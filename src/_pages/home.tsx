@@ -1,18 +1,55 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useWallet } from '@/providers/WalletProvider';
-import Navbar from '@/components/layout/Navbar';
-import LocationInput from '@/components/map/LocationInput';
+import { useWallet } from '../providers/WalletProvider';
+import Navbar from '../components/layout/Navbar';
+import LocationInput from '../components/map/LocationInput';
 import { MapPinIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import { loadDriversFromFile } from '../utils/driverVerification';
 
 const Home = () => {
   const { userAccount, formatAddress = (addr: string) => addr } = useWallet();
   const [isScrolled, setIsScrolled] = useState(false);
-  const navigate = useNavigate();
   const [pickup, setPickup] = useState<{ lat: number; lon: number; name: string } | null>(null);
   const [dropoff, setDropoff] = useState<{ lat: number; lon: number; name: string } | null>(null);
   const [userLocation, setUserLocation] = useState<{ lat: number; lon: number } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
+
+  const handleBookRide = async () => {
+    if (!pickup || !dropoff) return;
+    
+    setIsLoading(true);
+    
+    try {
+      // Load drivers from the JSON file
+      const drivers = loadDriversFromFile();
+      
+      // Filter for verified drivers only
+      const verifiedDrivers = drivers.filter(driver => driver.verified === true);
+      
+      if (verifiedDrivers.length === 0) {
+        // No verified drivers available
+        setError('No verified drivers available right now. Please try again later.');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Navigate to book-ride with the verified drivers
+      navigate('/book-ride', {
+        state: {
+          pickup,
+          dropoff,
+          userLocation: userLocation || undefined,
+          drivers: verifiedDrivers
+        }
+      });
+    } catch (error) {
+      console.error('Error loading drivers:', error);
+      setError('Failed to load available drivers. Please try again.');
+      setIsLoading(false);
+    }
+  };
 
   // Get user's current location if available
   useEffect(() => {
@@ -100,20 +137,9 @@ const Home = () => {
                   />
                 </div>
 
-                <div className="mt-6">
+                <div className="mt-6 space-y-4">
                   <button
-                    onClick={() => {
-                      if (pickup && dropoff) {
-                        setIsLoading(true);
-                        navigate('/book-ride', {
-                          state: {
-                            pickup,
-                            dropoff,
-                            userLocation: userLocation || undefined
-                          }
-                        });
-                      }
-                    }}
+                    onClick={handleBookRide}
                     disabled={!pickup || !dropoff || isLoading}
                     className={`w-full flex items-center justify-center px-6 py-3 border border-transparent rounded-md shadow-sm text-base font-medium text-white ${
                       !pickup || !dropoff || isLoading
@@ -129,6 +155,21 @@ const Home = () => {
                       </>
                     )}
                   </button>
+                  
+                  {error && (
+                    <div className="p-4 bg-red-50 border-l-4 border-red-400 rounded-md">
+                      <div className="flex">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-red-400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm text-red-700">{error}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {(pickup || dropoff) && (

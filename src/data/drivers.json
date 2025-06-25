@@ -1,34 +1,3 @@
 [
-  {
-    "id": "1",
-    "name": "Ouahid El Ouazzani",
-    "rating": 4.8,
-    "eta": 3,
-    "carModel": "Toyota Camry",
-    "licensePlate": "ABC-123"
-  },
-  {
-    "id": "2",
-    "name": "Omar El Oued",
-    "rating": 4.9,
-    "eta": 5,
-    "carModel": "Honda Civic",
-    "licensePlate": "XYZ-789"
-  },
-  {
-    "id": "3",
-    "name": "Jubair Binebine",
-    "rating": 4.7,
-    "eta": 7,
-    "carModel": "Nissan Altima",
-    "licensePlate": "DEF-456"
-  },
-  {
-    "id": "4",
-    "name": "Tarik al-Ghumari",
-    "rating": 4.9,
-    "eta": 4,
-    "carModel": "Hyundai Elantra",
-    "licensePlate": "GHI-321"
-  }
+  
 ]
