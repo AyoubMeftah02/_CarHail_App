@@ -36,6 +36,49 @@
       "artifacts": [
         "Escrow"
       ]
+    },
+    "D:\\Projects\\_CarHail_App\\contract\\Payement.sol": {
+      "lastModificationDate": 1750967949865,
+      "contentHash": "7959b91a829569bff4fa7ef7a2af5abc",
+      "sourceName": "contract/Payement.sol",
+      "solcConfig": {
+        "version": "0.8.20",
+        "settings": {
+          "optimizer": {
+            "enabled": true,
+            "runs": 200
+          },
+          "evmVersion": "paris",
+          "outputSelection": {
+            "*": {
+              "*": [
+                "abi",
+                "evm.bytecode",
+                "evm.deployedBytecode",
+                "evm.methodIdentifiers",
+                "metadata",
+                "devdoc",
+                "userdoc",
+                "storageLayout",
+                "evm.gasEstimates"
+              ],
+              "": [
+                "ast"
+              ]
+            }
+          },
+          "metadata": {
+            "useLiteralContent": true
+          }
+        }
+      },
+      "imports": [],
+      "versionPragmas": [
+        "^0.8.20"
+      ],
+      "artifacts": [
+        "Escrow"
+      ]
     }
   }
 }

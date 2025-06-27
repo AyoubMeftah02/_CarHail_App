@@ -1,45 +1,34 @@
-import { useState, useEffect, useCallback } from 'react';
-import { ethers, Contract, JsonRpcSigner } from 'ethers';
+import { useState, useEffect } from 'react';
 import type {
   EscrowState,
   WalletState,
   EscrowTransaction,
   EscrowHookReturn,
-} from '../types/escrow.types';
+} from '@/types/escrow.types';
+import { blockchainService } from '@/utils/blockchainService';
 
-declare global {
-  interface Window {
-    ethereum?: {
-      isMetaMask?: boolean;
-      request: (request: { method: string; params?: any[] }) => Promise<any>;
-      on?: (event: string, callback: (...args: any[]) => void) => void;
-      removeListener?: (event: string, callback: (...args: any[]) => void) => void;
+// Using the same ethereum type as blockchainService
+type EthereumRequest =
+  | { method: 'eth_requestAccounts' }
+  | { method: 'wallet_switchEthereumChain'; params: [{ chainId: string }] }
+  | {
+      method: 'wallet_addEthereumChain';
+      params: [
+        {
+          chainId: string;
+          chainName: string;
+          nativeCurrency: {
+            name: string;
+            symbol: string;
+            decimals: number;
+          };
+          rpcUrls: string[];
+          blockExplorerUrls: string[] | null;
+        },
+      ];
     };
-  }
-}
-
-// Contract ABI - import from your contract artifacts
-const ESCROW_ABI = [
-  'function deposit() external payable',
-  'function approveRelease() external',
-  'function refund() external',
-  'function passenger() external view returns (address)',
-  'function driver() external view returns (address)',
-  'function amount() external view returns (uint256)',
-  'function isCompleted() external view returns (bool)',
-  'event Deposited(address indexed passenger, uint256 amount)',
-  'event Released(address indexed driver, uint256 amount)',
-  'event Refunded(address indexed passenger, uint256 amount)',
-];
-
-// Contract addresses for different networks
-const CONTRACT_ADDRESSES: Record<number, string> = {
-  11155111: '0xd9145CCE52D386f254917e481eB44e9943F39138', // Sepolia
-};
 
 export function useEscrow(): EscrowHookReturn {
-  const [signer, setSigner] = useState<JsonRpcSigner | null>(null);
-  const [contract, setContract] = useState<Contract | null>(null);
   const [escrowState, setEscrowState] = useState<EscrowState | null>(null);
   const [transactions, setTransactions] = useState<
     Record<string, EscrowTransaction>
@@ -51,49 +40,26 @@ export function useEscrow(): EscrowHookReturn {
     isConnecting: false,
     error: null,
   });
+  const [contractAddress, setContractAddress] = useState<string | null>(null);
+  const [isDeploying, setIsDeploying] = useState(false);
 
   // Convert bigint to number safely
-  const bigIntToNumber = (value: bigint): number => {
-    return Number(value.toString());
-  };
 
-  // Initialize ethers provider and contract
-  const initializeContract = useCallback(
-    async (chainId: number, signerInstance: JsonRpcSigner) => {
-      const address = CONTRACT_ADDRESSES[chainId];
-      if (!address) {
-        throw new Error('Contract not deployed on this network');
-      }
-      return new ethers.Contract(address, ESCROW_ABI, signerInstance);
-    },
-    [],
-  );
-
-  // Connect wallet
+  // Connect wallet and switch to Hardhat network
   const connectWallet = async () => {
     try {
       setWalletState((prev) => ({ ...prev, isConnecting: true, error: null }));
 
-      if (!window.ethereum) {
-        throw new Error('MetaMask not installed');
+      // Connect wallet using blockchain service
+      const result = await blockchainService.connectWallet();
+
+      if (!result.success) {
+        throw new Error(result.error);
       }
 
-      const provider = new ethers.BrowserProvider(window.ethereum);
-      const signerInstance = await provider.getSigner();
-      const address = await signerInstance.getAddress();
-      const { chainId: chainIdBigInt } = await provider.getNetwork();
-      const chainId = bigIntToNumber(chainIdBigInt);
-
-      setSigner(signerInstance);
-      const contractInstance = await initializeContract(
-        chainId,
-        signerInstance,
-      );
-      setContract(contractInstance);
-
       setWalletState({
-        address,
-        chainId: chainId,
+        address: result.account || null,
+        chainId: 31337, // Hardhat chainId
         isConnected: true,
         isConnecting: false,
         error: null,
@@ -105,6 +71,27 @@ export function useEscrow(): EscrowHookReturn {
         error:
           error instanceof Error ? error.message : 'Failed to connect wallet',
       }));
+    }
+  };
+
+  // Deploy escrow contract
+  const deployContract = async (driverAddress: string) => {
+    try {
+      setIsDeploying(true);
+      const result = await blockchainService.deployEscrowContract(
+        driverAddress,
+        3600, // 1 hour release timeout
+        7200, // 2 hours refund timeout
+      );
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      setContractAddress(result.contractAddress || null);
+      return result;
+    } finally {
+      setIsDeploying(false);
     }
   };
 
@@ -122,84 +109,76 @@ export function useEscrow(): EscrowHookReturn {
 
   // Contract interaction methods
   const depositForRide = async (amount: bigint) => {
-    if (!contract || !signer) throw new Error('Contract not initialized');
+    if (!contractAddress) throw new Error('Contract not initialized');
 
-    try {
-      const tx = await contract.deposit({ value: amount });
-      updateTransaction(tx.hash, 'pending');
-      await tx.wait();
-      updateTransaction(tx.hash, 'success');
-      await getEscrowStatus();
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Transaction failed';
-      updateTransaction(error.transaction?.hash, 'failed', errorMessage);
-      throw error;
+    const result = await blockchainService.depositToEscrow(
+      contractAddress,
+      amount.toString(),
+    );
+    if (!result.success) {
+      throw new Error(result.error);
     }
+    updateTransaction(result.transactionHash || '', 'pending');
+    updateTransaction(result.transactionHash || '', 'success');
+    await getEscrowStatus();
   };
 
   const approvePayment = async () => {
-    if (!contract || !signer) throw new Error('Contract not initialized');
+    if (!contractAddress) throw new Error('Contract not initialized');
 
-    try {
-      const tx = await contract.approveRelease();
-      updateTransaction(tx.hash, 'pending');
-      await tx.wait();
-      updateTransaction(tx.hash, 'success');
-      await getEscrowStatus();
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Transaction failed';
-      updateTransaction(error.transaction?.hash, 'failed', errorMessage);
-      throw error;
+    const result = await blockchainService.releaseFunds(contractAddress);
+    if (!result.success) {
+      throw new Error(result.error);
     }
+    updateTransaction(result.transactionHash || '', 'pending');
+    updateTransaction(result.transactionHash || '', 'success');
+    await getEscrowStatus();
   };
 
   const requestRefund = async () => {
-    if (!contract || !signer) throw new Error('Contract not initialized');
+    if (!contractAddress) throw new Error('Contract not initialized');
 
-    try {
-      const tx = await contract.refund();
-      updateTransaction(tx.hash, 'pending');
-      await tx.wait();
-      updateTransaction(tx.hash, 'success');
-      await getEscrowStatus();
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Transaction failed';
-      updateTransaction(error.transaction?.hash, 'failed', errorMessage);
-      throw error;
+    const result = await blockchainService.refundToPassenger(contractAddress);
+    if (!result.success) {
+      throw new Error(result.error);
     }
+    updateTransaction(result.transactionHash || '', 'pending');
+    updateTransaction(result.transactionHash || '', 'success');
+    await getEscrowStatus();
   };
 
   const getEscrowStatus = async (): Promise<EscrowState> => {
-    if (!contract) throw new Error('Contract not initialized');
+    if (!contractAddress) throw new Error('Contract not initialized');
 
-    const [passenger, driver, amount, isCompleted] = await Promise.all([
-      contract.passenger(),
-      contract.driver(),
-      contract.amount(),
-      contract.isCompleted(),
-    ]);
+    const state = await blockchainService.getContractState(contractAddress);
+    if (!state) {
+      throw new Error('Failed to get contract state');
+    }
 
-    const state = { passenger, driver, amount, isCompleted };
-    setEscrowState(state);
-    return state;
+    const escrowState: EscrowState = {
+      passenger: state.passenger,
+      driver: state.driver,
+      amount: BigInt(state.amount),
+      isCompleted: state.isCompleted,
+    };
+
+    setEscrowState(escrowState);
+    return escrowState;
   };
 
   // Setup event listeners
   useEffect(() => {
-    if (!contract) return;
-
-    const handleAccountsChanged = async (accounts: string[]) => {
-      if (accounts.length === 0) {
+    const handleAccountsChanged = (...args: unknown[]) => {
+      const accounts = args[0] as string[];
+      if (!accounts || accounts.length === 0) {
         setWalletState((prev) => ({
           ...prev,
           isConnected: false,
           address: null,
         }));
       } else if (accounts[0] !== walletState.address) {
-        await connectWallet();
+        // Call connectWallet but don't await (event handler must be sync)
+        connectWallet();
       }
     };
 
@@ -214,13 +193,16 @@ export function useEscrow(): EscrowHookReturn {
       window.ethereum?.removeListener('accountsChanged', handleAccountsChanged);
       window.ethereum?.removeListener('chainChanged', handleChainChanged);
     };
-  }, [contract, walletState.address]);
+  }, [walletState.address]);
 
   return {
     escrowState,
     walletState,
     transactions,
+    contractAddress,
+    isDeploying,
     connectWallet,
+    deployContract,
     depositForRide,
     approvePayment,
     requestRefund,

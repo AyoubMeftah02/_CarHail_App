@@ -31,7 +31,10 @@ export interface EscrowHookReturn {
   escrowState: EscrowState | null;
   walletState: WalletState;
   transactions: Record<string, EscrowTransaction>;
+  contractAddress: string | null;
+  isDeploying: boolean;
   connectWallet: () => Promise<void>;
+  deployContract: (driverAddress: string, rideAmount: BigNumber) => Promise<{ success: boolean; contractAddress?: string; error?: string }>;
   depositForRide: (amount: BigNumber) => Promise<void>;
   approvePayment: () => Promise<void>;
   requestRefund: () => Promise<void>;

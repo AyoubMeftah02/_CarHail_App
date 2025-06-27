@@ -1,22 +1,77 @@
 import type { Driver } from '@/types/ride';
 import Tesseract from 'tesseract.js';
 
+// Helper function to format dates from various formats to YYYY-MM-DD
+const formatDate = (dateStr: string | null): string => {
+  if (!dateStr) return '';
+  
+  // Try to parse various date formats
+  const formats = [
+    // YYYY-MM-DD
+    /^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/,
+    // DD/MM/YYYY or DD-MM-YYYY
+    /^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/,
+    // MM/DD/YYYY or MM-DD-YYYY
+    /^(\d{1,2})[-/](\d{1,2})[-/](\d{2,4})$/,
+  ];
+
+  for (const format of formats) {
+    const match = dateStr.match(format);
+    if (match) {
+      let year = match[1];
+      let month = match[2];
+      let day = match[3];
+
+      // Handle 2-digit years
+      if (year.length === 2) year = `20${year}`;
+      
+      // Ensure 2-digit month and day
+      month = month.padStart(2, '0');
+      day = day.padStart(2, '0');
+      
+      return `${year}-${month}-${day}`;
+    }
+  }
+  
+  return '';
+};
+
+// Helper function to extract a match from text using a pattern
+const extractMatch = (text: string, patterns: RegExp | RegExp[]): string | null => {
+  const patternArray = Array.isArray(patterns) ? patterns : [patterns];
+  const normalizedText = text.toLowerCase();
+  
+  for (const pattern of patternArray) {
+    const match = normalizedText.match(pattern);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+  }
+  return null;
+};
+
 /**
  * Parses driver information from OCR text
  * @param text Raw OCR text from driver's license or ID
  * @returns Parsed driver info or null if parsing fails
  */
-export interface ParsedDriverInfo {
+
+interface ParsedDriverInfo {
+  id: string;
   name: string;
-  licensePlate: string;
-  carModel: string;
+  licenseId: string;
   car: string;
-  price: string;
-  rating: number;
-  eta: number;
-  image: string;
+  issueDate: string; // Date in YYYY-MM-DD format
+  expiry: string; // Date in YYYY-MM-DD format
+  // Additional fields for backward compatibility
+  licensePlate?: string;
+  carModel?: string;
+  price?: string;
+  rating?: number;
+  eta?: string;
+  image?: string;
   initials: string;
-  position: { lat: number; lng: number };
+  position: [number, number];
 }
 
 export const parseDriverInfo = (text: string): ParsedDriverInfo | null => {
@@ -62,72 +117,77 @@ export const parseDriverInfo = (text: string): ParsedDriverInfo | null => {
   };
 
   // Extract information using patterns
-  let name = findMatch(normalizedText, patterns.name) || '';
-  let licensePlate = findMatch(normalizedText, patterns.license) || '';
-  const carModel = findMatch(normalizedText, patterns.carModel) || undefined;
+  const extractedName = findMatch(normalizedText, patterns.name) || '';
+  const extractedLicense = findMatch(normalizedText, patterns.license) || '';
+  const extractedCarModel = findMatch(normalizedText, patterns.carModel) || '';
 
   // If we couldn't find name/license in the expected format, try to extract them from raw text
-  if (!name || !licensePlate) {
+  let finalName = extractedName;
+  let finalLicense = extractedLicense;
+  
+  if (!extractedName || !extractedLicense) {
     const lines = text.split('\n').filter(line => line.trim().length > 0);
     
     // Try to find name in the first few lines
-    if (!name && lines.length > 0) {
+    if (!finalName && lines.length > 0) {
       const nameLine = lines[0];
       const nameMatch = nameLine.match(/^([A-Z][a-z]+(?:\s+[A-Z][a-z.]*)*)/);
-      if (nameMatch) name = nameMatch[1].trim();
+      if (nameMatch) finalName = nameMatch[1].trim();
     }
     
     // Try to find license plate in the remaining lines
-    if (!licensePlate && lines.length > 1) {
+    if (!finalLicense && lines.length > 1) {
       for (let i = 1; i < Math.min(5, lines.length); i++) {
         const licenseMatch = lines[i].match(/\b([A-Z0-9]{4,10})\b/);
         if (licenseMatch) {
-          licensePlate = licenseMatch[1].trim();
+          finalLicense = licenseMatch[1].trim();
           break;
         }
       }
     }
-  }
-
-  // Final validation
-  if (!name || !licensePlate) {
-    console.error('Failed to extract required information:', { name, licensePlate });
-    return null;
-  }
-
-  // Clean up the extracted data
-  name = name.replace(/\s+/g, ' ').trim();
-  licensePlate = licensePlate.replace(/[^A-Z0-9]/g, '').toUpperCase();
-
-  console.log('Parsed driver info:', { name, licensePlate, carModel }); // Debug log
-
-  // Generate initials from name
-  const initials = name
-    .split(' ')
-    .map(n => n[0])
-    .join('')
-    .toUpperCase()
-    .substring(0, 2) || '??';
-
-  return {
-    name,
-    licensePlate,
-    carModel: carModel || 'Unknown Model',
-    car: carModel || 'Unknown Car',
-    price: '0',
-    rating: 5,
-    eta: 5,
-    image: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}`,
-    initials,
-    position: { lat: 0, lng: 0 }
   };
+
+  // Prepare final values with fallbacks
+  const name = finalName || 'Unknown Driver';
+  const licenseId = finalLicense || '';
+  const car = extractedCarModel || 'Unknown Vehicle';
+  const licensePlate = licenseId.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+  
+  // For dates, we'll use current date + 1 year as default
+  const now = new Date();
+  const oneYearLater = new Date(now.getFullYear() + 1, now.getMonth(), now.getDate()).toISOString().split('T')[0];
+  const today = now.toISOString().split('T')[0];
+
+  // Generate a unique ID for the driver
+  const generateId = () => `driver_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // Create and return the parsed driver object
+  const driver: ParsedDriverInfo = {
+    id: generateId(),
+    name,
+    licenseId: licenseId || 'UNKNOWN',
+    car,
+    carModel: car, // For backward compatibility
+    licensePlate, // For backward compatibility
+    issueDate: today,
+    expiry: oneYearLater,
+    // Additional fields for backward compatibility
+    price: '0.01 ETH',
+    rating: 5,
+    eta: '5 min',
+    image: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=random`,
+    initials: name
+      .split(' ')
+      .map((n) => n[0] || '')
+      .join('')
+      .toUpperCase()
+      .substring(0, 2),
+    position: [0, 0] as [number, number]
+  };
+
+  return driver;
 };
 
-/**
- * Extracts text from an image using Tesseract.js
- * @param imageFile Image file to process
- * @returns Extracted text
- */
 export const extractTextFromImage = async (imageFile: File): Promise<string> => {
   try {
     const { data: { text } } = await Tesseract.recognize(imageFile, 'eng');

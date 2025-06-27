@@ -42,7 +42,7 @@ const config: HardhatUserConfig = {
     dontOverrideCompile: false,
   },
   paths: {
-    sources: "./contracts",
+    sources: "./contract",
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts",

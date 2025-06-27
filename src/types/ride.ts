@@ -11,7 +11,6 @@ export interface Driver {
   image?: string;
   initials?: string;
   car?: string;
-  ipfsHash?: string;
   // Map-related properties
   position?: LatLngExpression;
   price?: string;

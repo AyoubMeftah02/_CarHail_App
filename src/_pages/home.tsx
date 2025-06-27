@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useWallet } from '../providers/WalletProvider';
-import Navbar from '../components/layout/Navbar';
-import LocationInput from '../components/map/LocationInput';
+import { useWallet } from '@/providers/WalletProvider';
+import Navbar from '@/components/layout/Navbar';
+import LocationInput from '@/components/map/LocationInput';
 import { MapPinIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
-import type { Driver } from '../types/ride';
-import { loadVerifiedDrivers } from '../utils/driverVerification';
+import type { Driver } from '@/types/ride';
+import { loadVerifiedDrivers } from '@/utils/driverVerification';
 
 const Home = () => {
   const { userAccount, formatAddress = (addr: string) => addr } = useWallet();

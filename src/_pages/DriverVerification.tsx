@@ -4,12 +4,11 @@ import Navbar from '@/components/layout/Navbar';
 import Tesseract from 'tesseract.js';
 import type { Driver } from '@/types/ride';
 import {
-  addDriver,
-  type SensitiveDriverData,
-  parseDriverInfo,
-  loadDrivers,
   verifyDriverFromText,
+  parseDriverInfo,
+  addDriver,
   saveDriverToStorage,
+  loadDrivers,
 } from '@/utils/driverVerification';
 
 type VerificationStatus = 'unverified' | 'verifying' | 'verified' | 'failed';
@@ -103,23 +102,7 @@ const DriverVerification: React.FC = (): JSX.Element => {
     });
 
     try {
-      // Convert file to base64 for IPFS storage
-      console.log('Converting file to base64...');
-      const fileBase64 = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-          if (typeof reader.result === 'string') {
-            resolve(reader.result);
-          } else {
-            reject(new Error('Failed to read file as base64'));
-          }
-        };
-        reader.onerror = (error) => {
-          console.error('FileReader error:', error);
-          reject(error);
-        };
-        reader.readAsDataURL(file);
-      });
+
 
       // Process the image with Tesseract
       console.log('Processing image with Tesseract...');
@@ -174,12 +157,12 @@ const DriverVerification: React.FC = (): JSX.Element => {
         }
 
         // Create new driver data
-        const newDriver: Omit<Driver, 'id' | 'ipfsHash' | 'verified'> = {
+        const newDriver: Omit<Driver, 'id' | 'verified'> = {
           ...parsedInfo,
-          rating: 0,
-          eta: 0,
-          position: { lat: 0, lng: 0 },
-          price: '0', // Convert to string to match type
+          rating: 5, // Default rating
+          eta: '5 min', // Default ETA
+          position: [0, 0], // Default position
+          price: '0.01 ETH', // Default price
           image: `https://ui-avatars.com/api/?name=${encodeURIComponent(parsedInfo.name)}&background=random`,
           initials:
             parsedInfo.initials ||
@@ -191,17 +174,10 @@ const DriverVerification: React.FC = (): JSX.Element => {
               .substring(0, 2),
         };
 
-        // Prepare sensitive data for IPFS
-        const sensitiveData: SensitiveDriverData = {
-          licenseNumber: parsedInfo.licensePlate,
-          documentImage: fileBase64,
-          timestamp: new Date().toISOString(),
-        };
-
         console.log('Adding new driver with data:', newDriver);
-
-        // Add the new driver with sensitive data
-        const addedDriver = await addDriver(newDriver, sensitiveData);
+        
+        // Add the new driver
+        const addedDriver = await addDriver(newDriver);
         // Save to localStorage as verified
         saveDriverToStorage(addedDriver);
         // Update state with the new driver

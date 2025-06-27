@@ -1,20 +1,21 @@
-import { useState, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import {useState, useEffect} from 'react';
+import {useLocation, useNavigate} from 'react-router-dom';
 import {
-  MapPinIcon,
   ArrowLeftIcon,
-  ClockIcon,
-  UserIcon,
-  StarIcon,
   ArrowRightIcon,
-  ArrowPathIcon,
 } from '@heroicons/react/24/outline';
 import type { LatLngExpression } from 'leaflet';
 import Navbar from '@/components/layout/Navbar';
+import DriverList from '@/components/ride/DriverList';
+import SelectedDriverCard from '@/components/ride/SelectedDriverCard';
+import PaymentModal from '@/components/ride/PaymentModal';
+import LocationPinsOverlay from '@/components/ride/LocationPinsOverlay';
 import MapComp from '@/components/map/Map';
 import { useWallet } from '@/providers/WalletProvider';
+import { useEscrow } from '@/hooks/useEscrow';
 import type { Driver } from '@/types/ride';
 import { loadVerifiedDrivers } from '@/utils/driverVerification';
+import { ethers } from 'ethers';
 
 interface Location {
   lat: number;
@@ -48,6 +49,22 @@ const BookRide = () => {
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [rideAmount] = useState(ethers.parseEther('0.005')); // 0.005 ETH ride amount
+  const [paymentStep, setPaymentStep] = useState<'connect' | 'deploy' | 'deposit' | 'complete'>('connect');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  
+  // Initialize escrow hook
+  const {
+    escrowState,
+    walletState,
+    contractAddress,
+    isDeploying,
+    connectWallet,
+    deployContract,
+    depositForRide,
+    approvePayment,
+    requestRefund,
+  } = useEscrow();
 
   // Load drivers from the verified_drivers key in localStorage
   const loadDrivers = async (): Promise<Driver[]> => {
@@ -55,29 +72,38 @@ const BookRide = () => {
       setIsLoading(true);
       // Get all drivers from the verified_drivers key
       const allDrivers: Driver[] = loadVerifiedDrivers();
-      // Filter for verified drivers and add any missing required fields
-      const verifiedDrivers: Driver[] = allDrivers
-        .filter(
-          (driver): driver is Driver & { verified: true } => !!driver.verified,
-        )
-        .map((driver: Driver) => ({
-          ...driver,
-          price: driver.price || '0.005 ETH',
-          eta:
-            typeof driver.eta === 'number'
-              ? `${driver.eta} min`
-              : driver.eta || '5 min',
-          image:
-            driver.image ||
-            `https://ui-avatars.com/api/?name=${encodeURIComponent(driver.name)}&background=random`,
-          initials: driver.initials || getInitials(driver.name),
-          position: driver.position || ([51.505, -0.09] as LatLngExpression),
-          car: driver.car || driver.carModel || 'Car',
-        }));
+      
+      // Create a map to remove duplicates by driver ID
+      const uniqueDrivers = new Map<string, Driver>();
+      
+      // Process and deduplicate drivers
+      allDrivers
+        .filter((driver): driver is Driver & { verified: true } => !!driver.verified)
+        .forEach((driver: Driver) => {
+          if (!uniqueDrivers.has(driver.id)) {
+            uniqueDrivers.set(driver.id, {
+              ...driver,
+              price: driver.price || '0.005 ETH',
+              eta: typeof driver.eta === 'number' 
+                ? `${driver.eta} min` 
+                : driver.eta || '5 min',
+              image: driver.image || 
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(driver.name)}&background=random`,
+              initials: driver.initials || getInitials(driver.name),
+              position: driver.position || ([51.505, -0.09] as LatLngExpression),
+              car: driver.car || driver.carModel || 'Car',
+              rating: driver.rating || 4.8, // Add default rating if missing
+            });
+          }
+        });
+      
+      const verifiedDrivers = Array.from(uniqueDrivers.values());
       setDrivers(verifiedDrivers);
+      
       if (verifiedDrivers.length === 1) {
         setSelectedDriver(verifiedDrivers[0]);
       }
+      
       return verifiedDrivers;
     } catch (error) {
       console.error('Error loading drivers:', error);
@@ -119,24 +145,89 @@ const BookRide = () => {
       )
     : drivers;
 
-  // Set default map center to first driver's position or default location
-  const defaultMapCenter: LatLngExpression =
-    filteredDrivers.length > 0 && filteredDrivers[0].position
-      ? filteredDrivers[0].position
-      : [51.505, -0.09];
-
   // Debugging logs
   console.log('BookRide - pickup:', pickup);
   console.log('BookRide - dropoff:', dropoff);
   console.log('BookRide - userLocation:', userLocation);
   console.log('BookRide - filteredDrivers count:', filteredDrivers.length);
 
-  // Show message if no verified drivers are available
-  const noDriversAvailable = drivers.length === 0;
-
   const handleSelectDriver = (driver: Driver) => {
     setSelectedDriver(driver);
     // In a real app, you would confirm the ride with the selected driver
+  };
+
+  // Payment flow handlers
+  const handlePayClick = async () => {
+    if (!selectedDriver) return;
+    setShowPaymentModal(true);
+    
+    if (!walletState.isConnected) {
+      setPaymentStep('connect');
+    } else if (!contractAddress) {
+      setPaymentStep('deploy');
+    } else {
+      setPaymentStep('deposit');
+    }
+  };
+
+  const handleConnectWallet = async () => {
+    try {
+      await connectWallet();
+      setPaymentStep('deploy');
+    } catch (error) {
+      console.error('Failed to connect wallet:', error);
+      alert('Failed to connect wallet. Please try again.');
+    }
+  };
+
+  const handleDeployContract = async () => {
+    if (!selectedDriver) return;
+    
+    try {
+      // Use a hardcoded driver address for demo (Account 2 from Hardhat)
+      const driverAddress = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8';
+      await deployContract(driverAddress, rideAmount);
+      setPaymentStep('deposit');
+    } catch (error) {
+      console.error('Failed to deploy contract:', error);
+      alert('Failed to deploy escrow contract. Please try again.');
+    }
+  };
+
+  const handleDeposit = async () => {
+    try {
+      await depositForRide(rideAmount);
+      setPaymentStep('complete');
+      alert('Payment successful! Your ride is confirmed.');
+    } catch (error) {
+      console.error('Failed to deposit:', error);
+      alert('Payment failed. Please try again.');
+    }
+  };
+
+  const handleReleasePayment = async () => {
+    try {
+      await approvePayment();
+      alert('Payment released to driver successfully!');
+    } catch (error) {
+      console.error('Failed to release payment:', error);
+      alert('Failed to release payment. Please try again.');
+    }
+  };
+
+  const handleRefund = async () => {
+    try {
+      await requestRefund();
+      alert('Refund processed successfully!');
+    } catch (error) {
+      console.error('Failed to process refund:', error);
+      alert('Failed to process refund. Please try again.');
+    }
+  };
+
+  const closePaymentModal = () => {
+    setShowPaymentModal(false);
+    setPaymentStep('connect');
   };
 
   return (
@@ -175,129 +266,15 @@ const BookRide = () => {
         <div className="flex flex-1 overflow-hidden">
           {/* Left Column - Driver Selection */}
           <div className="w-full md:w-96 bg-white border-r border-gray-200 flex flex-col h-full overflow-hidden">
-            <div className="p-4 border-b border-gray-200 bg-white">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-lg font-semibold text-gray-900">
-                    Choose your driver
-                  </h2>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {filteredDrivers.length}{' '}
-                    {filteredDrivers.length === 1 ? 'driver' : 'drivers'}{' '}
-                    available
-                  </p>
-                </div>
-                <button
-                  onClick={refreshDrivers}
-                  className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
-                  title="Refresh drivers"
-                  disabled={isLoading}
-                >
-                  <ArrowPathIcon
-                    className={`h-5 w-5 ${isLoading ? 'animate-spin' : ''}`}
-                  />
-                </button>
-              </div>
-              <span className="text-sm text-gray-500">
-                {filteredDrivers.length}{' '}
-                {filteredDrivers.length === 1 ? 'driver' : 'drivers'}
-              </span>
-            </div>
-
-            {/* Drivers list container with scroll */}
-            <div className="overflow-y-auto h-[calc(100vh-180px)] pr-2">
-              {!isLoading && drivers.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No drivers are currently available. Please try again later.
-                </div>
-              ) : drivers.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
-                  No drivers match your search.
-                </div>
-              ) : isLoading ? (
-                <div className="space-y-4">
-                  {[1, 2, 3].map((i) => (
-                    <div
-                      key={i}
-                      className="animate-pulse bg-gray-100 rounded-xl p-4"
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className="h-12 w-12 rounded-full bg-gray-200"></div>
-                        <div className="flex-1 space-y-2">
-                          <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                          <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <>
-                  {filteredDrivers.map((driver) => (
-                    <div
-                      key={driver.id}
-                      onClick={() => handleSelectDriver(driver)}
-                      className={`p-4 rounded-xl cursor-pointer transition-all duration-200 ${
-                        selectedDriver?.id === driver.id
-                          ? 'bg-green-50 border-2 border-green-200'
-                          : 'bg-white border border-gray-100 hover:border-green-100'
-                      }`}
-                    >
-                      <div className="flex items-start">
-                        <div
-                          className={`h-12 w-12 rounded-full flex items-center justify-center text-white font-medium text-sm ${
-                            avatarColors[
-                              parseInt(driver.id) % avatarColors.length
-                            ]
-                          } flex-shrink-0`}
-                        >
-                          {driver.initials}
-                        </div>
-                        <div className="ml-3 flex-1 min-w-0">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-medium text-gray-900">
-                              {driver.name}
-                            </h3>
-                            <div className="flex items-center bg-yellow-50 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                              <StarIcon className="h-3 w-3 mr-1" />
-                              <span>{driver.rating}</span>
-                            </div>
-                          </div>
-                          <p className="text-sm text-gray-500 mt-0.5">
-                            {driver.car}
-                          </p>
-                          <div className="mt-2 flex items-center justify-between">
-                            <div className="flex items-center text-sm text-gray-600">
-                              <ClockIcon className="h-4 w-4 mr-1.5 text-gray-400" />
-                              <span>{driver.eta} away</span>
-                            </div>
-                            <span className="text-base font-bold text-green-600">
-                              {driver.price}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      {selectedDriver?.id === driver.id && (
-                        <div className="mt-3 pt-3 border-t border-green-100">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              alert(
-                                `Ride confirmed with ${selectedDriver.name}!`,
-                              );
-                            }}
-                            className="w-full bg-green-600 text-white py-2.5 px-4 rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center justify-center"
-                          >
-                            <span>Confirm {driver.name}</span>
-                            <ArrowRightIcon className="ml-2 h-5 w-5" />
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </>
-              )}
-            </div>
+            <DriverList
+              drivers={filteredDrivers}
+              isLoading={isLoading}
+              searchQuery={searchQuery}
+              selectedDriver={selectedDriver}
+              onSelectDriver={handleSelectDriver}
+              onRefresh={refreshDrivers}
+              onClearSearch={() => setSearchQuery('')}
+            />
           </div>
 
           {/* Right Column - Map */}
@@ -324,92 +301,38 @@ const BookRide = () => {
             )}
 
             {/* Location Pins Overlay */}
-            <div className="absolute top-4 left-4 z-10">
-              <div className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg p-3 max-w-xs">
-                <div className="flex items-start space-x-2">
-                  <div className="flex flex-col items-center pt-0.5">
-                    <div className="w-3 h-3 rounded-full bg-green-500 border-2 border-white shadow-sm"></div>
-                    <div className="w-px h-4 bg-gray-300 my-0.5"></div>
-                    <div className="w-3 h-3 rounded-full bg-red-500 border-2 border-white shadow-sm"></div>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {pickup?.name || 'Pickup location'}
-                    </p>
-                    <div className="h-4 flex items-center justify-center">
-                      <div className="w-px h-full bg-gray-300"></div>
-                    </div>
-                    <p className="text-sm font-medium text-gray-900 truncate">
-                      {dropoff?.name || 'Drop-off location'}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
+            <LocationPinsOverlay pickup={pickup} dropoff={dropoff} />
 
             {/* Driver Selection Card */}
             {selectedDriver && (
-              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-10 w-full max-w-md px-4">
-                <div className="bg-white rounded-xl shadow-xl overflow-hidden">
-                  <div className="p-4">
-                    <div className="flex items-start">
-                      <div
-                        className={`h-12 w-12 rounded-full flex items-center justify-center text-white font-medium text-sm ${
-                          avatarColors[
-                            parseInt(selectedDriver.id) % avatarColors.length
-                          ]
-                        } flex-shrink-0`}
-                      >
-                        {selectedDriver.initials}
-                      </div>
-                      <div className="ml-3 flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <h3 className="text-lg font-semibold text-gray-900">
-                            {selectedDriver.name}
-                          </h3>
-                          <div className="flex items-center bg-yellow-50 text-yellow-700 text-xs font-medium px-2 py-0.5 rounded-full">
-                            <StarIcon className="h-3 w-3 mr-1" />
-                            <span>{selectedDriver.rating}</span>
-                          </div>
-                        </div>
-                        <p className="text-sm text-gray-500 mt-0.5">
-                          {selectedDriver.car}
-                        </p>
-                        <div className="mt-2 flex items-center justify-between">
-                          <div className="flex items-center text-sm text-gray-600">
-                            <ClockIcon className="h-4 w-4 mr-1.5 text-gray-400" />
-                            <span>{selectedDriver.eta} away</span>
-                          </div>
-                          <span className="text-lg font-bold text-green-600">
-                            {selectedDriver.price}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="bg-gray-50 px-4 py-3 flex justify-end space-x-3 border-t border-gray-100">
-                    <button
-                      onClick={() => setSelectedDriver(null)}
-                      className="px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                    >
-                      Change Driver
-                    </button>
-                    <button
-                      onClick={() =>
-                        alert(`Ride confirmed with ${selectedDriver.name}!`)
-                      }
-                      className="px-6 py-2.5 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition-colors flex items-center"
-                    >
-                      <span>Confirm Ride</span>
-                      <ArrowRightIcon className="ml-2 h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <SelectedDriverCard
+                selectedDriver={selectedDriver}
+                rideAmount={rideAmount}
+                onPayClick={handlePayClick}
+                onChangeDriver={() => setSelectedDriver(null)}
+              />
             )}
           </div>
         </div>
       </main>
+
+      {/* Payment Modal */}
+      {showPaymentModal && (
+        <PaymentModal
+          showPaymentModal={showPaymentModal}
+          onClose={closePaymentModal}
+          paymentStep={paymentStep}
+          rideAmount={rideAmount}
+          escrowState={escrowState}
+          walletState={walletState}
+          transactions={[]}
+          contractAddress={contractAddress}
+          isDeploying={isDeploying}
+          onConnectWallet={handleConnectWallet}
+          onDeployContract={handleDeployContract}
+          onDeposit={handleDeposit}
+        />
+      )}
     </div>
   );
 };

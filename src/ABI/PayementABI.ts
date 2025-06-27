@@ -1,21 +1,25 @@
 // src/contracts/EscrowContract.ts
 export const ESCROW_ABI = [
-    [
-        {
-            "inputs": [],
-            "name": "AlreadyCompleted",
-            "type": "error"
-        },
-        {
-            "inputs": [],
-            "name": "NotDriver",
-            "type": "error"
-        },
-        {
-            "inputs": [],
-            "name": "NotPassenger",
-            "type": "error"
-        },
+    {
+        "inputs": [],
+        "name": "AlreadyCompleted",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "NotDriver",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "NotPassenger",
+        "type": "error"
+    },
+    {
+        "inputs": [],
+        "name": "TimeoutNotReached",
+        "type": "error"
+    },
         {
             "anonymous": false,
             "inputs": [
@@ -74,8 +78,43 @@ export const ESCROW_ABI = [
             "type": "event"
         },
         {
+            "inputs": [
+                {
+                    "internalType": "address",
+                    "name": "_driver",
+                    "type": "address"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "_releaseTimeout",
+                    "type": "uint256"
+                },
+                {
+                    "internalType": "uint256",
+                    "name": "_refundTimeout",
+                    "type": "uint256"
+                }
+            ],
+            "stateMutability": "nonpayable",
+            "type": "constructor"
+        },
+        {
             "inputs": [],
             "name": "approveRelease",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "autoRefund",
+            "outputs": [],
+            "stateMutability": "nonpayable",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "autoRelease",
             "outputs": [],
             "stateMutability": "nonpayable",
             "type": "function"
@@ -95,19 +134,21 @@ export const ESCROW_ABI = [
             "type": "function"
         },
         {
-            "inputs": [
+            "inputs": [],
+            "name": "amount",
+            "outputs": [
                 {
-                    "internalType": "address",
-                    "name": "_driver",
-                    "type": "address"
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
                 }
             ],
-            "stateMutability": "nonpayable",
-            "type": "constructor"
+            "stateMutability": "view",
+            "type": "function"
         },
         {
             "inputs": [],
-            "name": "amount",
+            "name": "depositTimestamp",
             "outputs": [
                 {
                     "internalType": "uint256",
@@ -156,8 +197,33 @@ export const ESCROW_ABI = [
             ],
             "stateMutability": "view",
             "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "refundTimeout",
+            "outputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
+        },
+        {
+            "inputs": [],
+            "name": "releaseTimeout",
+            "outputs": [
+                {
+                    "internalType": "uint256",
+                    "name": "",
+                    "type": "uint256"
+                }
+            ],
+            "stateMutability": "view",
+            "type": "function"
         }
-    ]
-  ];
+];
   
-  export const ESCROW_ADDRESS = "0xd9145CCE52D386f254917e481eB44e9943F39138";
+export const ESCROW_ADDRESS = "0xd9145CCE52D386f254917e481eB44e9943F39138";
