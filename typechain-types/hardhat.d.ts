@@ -14,19 +14,19 @@ import * as Contracts from ".";
 declare module "hardhat/types/runtime" {
   interface HardhatEthersHelpers extends HardhatEthersHelpersBase {
     getContractFactory(
-      name: "Escrow",
+      name: "ReentrancyGuard",
       signerOrOptions?: ethers.Signer | FactoryOptions
-    ): Promise<Contracts.Escrow__factory>;
+    ): Promise<Contracts.ReentrancyGuard__factory>;
     getContractFactory(
       name: "Escrow",
       signerOrOptions?: ethers.Signer | FactoryOptions
     ): Promise<Contracts.Escrow__factory>;
 
     getContractAt(
-      name: "Escrow",
+      name: "ReentrancyGuard",
       address: string | ethers.Addressable,
       signer?: ethers.Signer
-    ): Promise<Contracts.Escrow>;
+    ): Promise<Contracts.ReentrancyGuard>;
     getContractAt(
       name: "Escrow",
       address: string | ethers.Addressable,
@@ -34,19 +34,19 @@ declare module "hardhat/types/runtime" {
     ): Promise<Contracts.Escrow>;
 
     deployContract(
-      name: "Escrow",
+      name: "ReentrancyGuard",
       signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.Escrow>;
+    ): Promise<Contracts.ReentrancyGuard>;
     deployContract(
       name: "Escrow",
       signerOrOptions?: ethers.Signer | DeployContractOptions
     ): Promise<Contracts.Escrow>;
 
     deployContract(
-      name: "Escrow",
+      name: "ReentrancyGuard",
       args: any[],
       signerOrOptions?: ethers.Signer | DeployContractOptions
-    ): Promise<Contracts.Escrow>;
+    ): Promise<Contracts.ReentrancyGuard>;
     deployContract(
       name: "Escrow",
       args: any[],

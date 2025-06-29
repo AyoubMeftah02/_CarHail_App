@@ -52,6 +52,8 @@ export const WalletProvider = ({ children }: WalletProviderProps) => {
   );
 };
 
+export { WalletContext };
+
 export const useWallet = () => {
   const context = useContext(WalletContext);
   if (context === undefined) {

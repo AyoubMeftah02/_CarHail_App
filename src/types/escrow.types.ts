@@ -5,12 +5,14 @@ export interface EscrowState {
   driver: string;
   amount: BigNumber;
   isCompleted: boolean;
+  isDepositing?: boolean; // Optional flag for UI state
 }
 
 export interface EscrowTransaction {
   hash: string;
   status: 'pending' | 'success' | 'failed';
   error?: string;
+  description?: string; // Optional description for UI display
 }
 
 export interface RideDetails {
@@ -30,7 +32,9 @@ export interface WalletState {
 export interface EscrowHookReturn {
   escrowState: EscrowState | null;
   walletState: WalletState;
+  setWalletState: React.Dispatch<React.SetStateAction<WalletState>>;
   transactions: Record<string, EscrowTransaction>;
+  setTransactions: React.Dispatch<React.SetStateAction<Record<string, EscrowTransaction>>>;
   contractAddress: string | null;
   isDeploying: boolean;
   connectWallet: () => Promise<void>;

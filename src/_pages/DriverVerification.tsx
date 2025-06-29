@@ -142,8 +142,8 @@ const DriverVerification: React.FC = (): JSX.Element => {
           verificationStatus: 'verified' as const,
           loading: false,
         });
-        // Optionally redirect after short delay
-        setTimeout(() => navigate('/dashboard'), 1500);
+        // Show success message in the UI
+        console.log('Driver verification successful!');
       } else {
         console.log(
           'No matching driver found, attempting to parse as new driver...',
@@ -188,8 +188,8 @@ const DriverVerification: React.FC = (): JSX.Element => {
           loading: false,
           drivers: [...prevState.drivers, addedDriver],
         }));
-        // Optionally redirect after short delay
-        setTimeout(() => navigate('/dashboard'), 1500);
+        // Show success message in the UI
+        console.log('New driver added and verified successfully!');
       }
     } catch (error) {
       console.error('Verification error:', error);

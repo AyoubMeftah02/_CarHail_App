@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { ethers } from 'ethers';
 import type {
   EscrowState,
   WalletState,
@@ -59,7 +60,7 @@ export function useEscrow(): EscrowHookReturn {
 
       setWalletState({
         address: result.account || null,
-        chainId: 31337, // Hardhat chainId
+        chainId: result.chainId || null,
         isConnected: true,
         isConnecting: false,
         error: null,
@@ -109,18 +110,24 @@ export function useEscrow(): EscrowHookReturn {
 
   // Contract interaction methods
   const depositForRide = async (amount: bigint) => {
+    // Convert wei bigint to ETH string for correct parsing inside depositToEscrow
+    const amountInEth = ethers.formatEther(amount);
     if (!contractAddress) throw new Error('Contract not initialized');
 
     const result = await blockchainService.depositToEscrow(
       contractAddress,
-      amount.toString(),
+      amountInEth,
     );
     if (!result.success) {
       throw new Error(result.error);
     }
     updateTransaction(result.transactionHash || '', 'pending');
     updateTransaction(result.transactionHash || '', 'success');
-    await getEscrowStatus();
+    try {
+      await getEscrowStatus();
+    } catch (err) {
+      console.warn('Unable to refresh escrow state:', err);
+    }
   };
 
   const approvePayment = async () => {
@@ -132,7 +139,11 @@ export function useEscrow(): EscrowHookReturn {
     }
     updateTransaction(result.transactionHash || '', 'pending');
     updateTransaction(result.transactionHash || '', 'success');
-    await getEscrowStatus();
+    try {
+      await getEscrowStatus();
+    } catch (err) {
+      console.warn('Unable to refresh escrow state:', err);
+    }
   };
 
   const requestRefund = async () => {
@@ -144,7 +155,11 @@ export function useEscrow(): EscrowHookReturn {
     }
     updateTransaction(result.transactionHash || '', 'pending');
     updateTransaction(result.transactionHash || '', 'success');
-    await getEscrowStatus();
+    try {
+      await getEscrowStatus();
+    } catch (err) {
+      console.warn('Unable to refresh escrow state:', err);
+    }
   };
 
   const getEscrowStatus = async (): Promise<EscrowState> => {
@@ -166,7 +181,24 @@ export function useEscrow(): EscrowHookReturn {
     return escrowState;
   };
 
-  // Setup event listeners
+  useEffect(() => {
+    if (!walletState.isConnected || !walletState.address) return;
+
+    const loadEscrowState = async () => {
+      try {
+        const contractAddress = walletState.address || '';
+        const state = await blockchainService.getContractState(contractAddress);
+        if (state) {
+          setEscrowState({ ...state, amount: BigInt(state.amount) });
+        }
+      } catch (error) {
+        console.error('Failed to load escrow state:', error);
+      }
+    };
+
+    loadEscrowState();
+  }, [walletState]);
+
   useEffect(() => {
     const handleAccountsChanged = (...args: unknown[]) => {
       const accounts = args[0] as string[];
@@ -197,8 +229,10 @@ export function useEscrow(): EscrowHookReturn {
 
   return {
     escrowState,
-    walletState,
     transactions,
+    walletState,
+    setWalletState,
+    setTransactions,
     contractAddress,
     isDeploying,
     connectWallet,

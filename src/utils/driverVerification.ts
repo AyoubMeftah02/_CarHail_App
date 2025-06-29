@@ -1,5 +1,6 @@
 import Tesseract from 'tesseract.js';
 import type { Driver } from '@/types/ride';
+import { validateLicenseFormat, sanitizeDriverName, handleCorruptedData } from './dataValidation';
 
 // Key for storing drivers in localStorage
 const DRIVERS_STORAGE_KEY = 'carhail_drivers';
@@ -45,11 +46,15 @@ export const scanDriverLicense = async (
     }
     
     // Step 2: Parse the extracted text
-    const driverInfo = parseDriverInfo(text);
+    const cleanedText = handleCorruptedData(text);
+    const driverInfo = parseDriverInfo(cleanedText);
     
-    if (!driverInfo) {
-      console.error('Could not parse driver information from extracted text');
-      return null;
+    if (driverInfo) {
+      driverInfo.name = sanitizeDriverName(driverInfo.name);
+      if (!validateLicenseFormat(driverInfo.licensePlate)) {
+        console.error('Invalid license format:', driverInfo.licensePlate);
+        return null;
+      }
     }
     
     console.log('Successfully parsed driver info:', driverInfo);
@@ -78,11 +83,10 @@ export const parseDriverInfo = (text: string): ParsedDriverInfo | null => {
   const cleanText = (str: string): string => {
     return str
       .trim()
-      .replace(/[^\S\r\n]+/g, ' ') // Replace multiple spaces with single space
+      .replace(/[ \t]+/g, ' ') // collapse consecutive spaces/tabs but preserve newlines
       .replace(/[\u2018\u2019\u201A\u201B\u2032\u2035\u00B4\u02B9\u02BB\u02BC\u02C8\u02EE\u0301\u0384\u1FBD\u1FBF\u1FEF\uFF07]+/g, "'")
       .replace(/[\u201C\u201D\u201E\u201F\u2033\u2036\u2034\u2037"]+/g, '"')
-      .replace(/[^\p{L}\p{N}\s\-']/gu, ' ') // Remove special chars but keep letters, numbers, spaces, hyphens, and apostrophes
-      .replace(/\s+/g, ' ')
+      .replace(/[^\p{L}\p{N}\s\-']+/gu, ' ') // Remove special chars but keep letters, numbers, spaces, hyphens, and apostrophes
       .trim();
   };
 
@@ -92,18 +96,20 @@ export const parseDriverInfo = (text: string): ParsedDriverInfo | null => {
 
   // Patterns for extracting name
   const namePatterns = [
-    // Matches formats like "NOM: EL OUED" or "NOM ET PRENOM: OMAR EL OUED"
-    /(?:NOM[\s\-]*(?:ET[\s\-]*PR[ÉE]NOM)?|IDENTIT[ÉE])[\s:]*([A-Z][A-Z\s\-']+)(?:\n|$)/i,
+    // Matches English label e.g. "NAME: LEILA BOUAZZAOUI"
+    /(?:NAME)[\s:]+([A-Z][A-Z\s\-']+)(?:\n|$)/i,
+    // Matches French/Arabic labels
+    /(?:NOM[\s\-]*(?:ET[\s\-]*PR[ÉE]NOM)?|IDENTIT[ÉE])[\s:]+([A-Z][A-Z\s\-']+)(?:\n|$)/i,
     // Matches full name in all caps at the start of a line
     /^([A-Z][A-Z\s\-']+[A-Z])(?:\n|$)/m,
     // Matches name before common license number patterns
-    /^([A-Z][A-Z\s\-']+[A-Z])(?=\s*(?:\n|\d|LICENSE|PERMIS|MATR|N°|ID|\b[0-9]{6,}\b))/i,
+    /^([A-Z][A-Z\s\-']+[A-Z])(?=\s*(?:\n|\d|LICENSE|PERMIS|MATR|N°|ID|PLATE|\b[0-9]{6,}\b))/i,
   ];
 
   // Patterns for extracting license number/ID
   const licensePatterns = [
-    // Matches formats like "N°: 175074037252" or "ID: 175074037252"
-    /(?:N°|NUMÉRO|NUMERO|ID|IDENTIFIANT|MATRICULE?)[\s:]*([A-Z0-9\-\s]{6,15})/i,
+    // Matches English/French labels like "PLATE: 12345-C-56" or "LICENSE: 022024"
+    /(?:PLATE|LICENSE|LICENCE|N°|NUMÉRO|NUMERO|ID|IDENTIFIANT|MATRICULE?)[\s:]*([A-Z0-9\-\s]{5,20})/i,
     // Matches 10-12 digit numbers (common for Moroccan IDs)
     /\b(\d{10,12})\b/,
     // Matches alphanumeric IDs with common patterns
@@ -112,8 +118,8 @@ export const parseDriverInfo = (text: string): ParsedDriverInfo | null => {
 
   // Patterns for extracting car model
   const carModelPatterns = [
-    // Matches formats like "VEHICULE: HONDA CIVIC 2021"
-    /(?:VÉHICULE?|VOITURE|MOD[EÈ]LE?|MARQUE|IMMATRICULATION|MODEL)[\s:]+([A-Z0-9\s\-]+)(?:\n|$)/i,
+    // Matches formats like "VEHICLE: HYUNDAI I10" or "CAR: HYUNDAI I10"
+    /(?:VEHICLE|CAR|VOITURE|VÉHICULE?|MODEL|MOD[EÈ]LE?|MARQUE|IMMATRICULATION)[\s:]+([A-Z0-9\s\-]+)(?:\n|$)/i,
     // Matches common car model patterns (Brand + Model + Year)
     /\b([A-Z]{2,}[A-Z0-9\s\-]+(?:\d{4})?)\b/,
   ];

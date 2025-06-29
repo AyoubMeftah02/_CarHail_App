@@ -3,6 +3,10 @@ import type { LatLngExpression } from 'leaflet';
 import type { Driver, RideRequest } from '@/types/ride';
 import { calculateFare, ratePerKm, platformFeeRate } from '@/utils/mapUtils';
 import { getRoute } from '@/utils/locationServices';
+import { STATIC_DRIVERS } from '@/utils/driverStorage';
+
+// Helper function to get random position offset
+const getRandomOffset = () => (Math.random() * 0.01) - 0.005; // Random offset between -0.005 and 0.005
 
 interface MapLogicState {
   userPosition: LatLngExpression | null;
@@ -87,50 +91,27 @@ const useMapLogic = ({
   const [pickupQuery, setPickupQuery] = useState(initialPickupQuery);
   const [destinationQuery, setDestinationQuery] = useState(initialDestinationQuery);
 
-  // Generate mock drivers around user location
-  const generateMockDrivers = useCallback(
+  // Get static drivers and update their positions relative to user
+  const getDriversNearby = useCallback(
     (userPos: LatLngExpression): Driver[] => {
+      if (!userPos) return [];
+      
       const [userLat, userLng] = Array.isArray(userPos)
         ? userPos
         : [userPos.lat, userPos.lng];
-      return [
-        {
-          id: '1',
-          name: 'John Smith',
-          position: [userLat + 0.005, userLng + 0.003],
-          rating: 4.8,
-          eta: 3,
-          carModel: 'Toyota Camry',
-          licensePlate: 'ABC-123',
-        },
-        {
-          id: '2',
-          name: 'Sarah Johnson',
-          position: [userLat - 0.003, userLng + 0.007],
-          rating: 4.9,
-          eta: 5,
-          carModel: 'Honda Civic',
-          licensePlate: 'XYZ-789',
-        },
-        {
-          id: '3',
-          name: 'Mike Davis',
-          position: [userLat + 0.008, userLng - 0.002],
-          rating: 4.7,
-          eta: 7,
-          carModel: 'Nissan Altima',
-          licensePlate: 'DEF-456',
-        },
-        {
-          id: '4',
-          name: 'Emily Chen',
-          position: [userLat - 0.006, userLng - 0.005],
-          rating: 4.9,
-          eta: 4,
-          carModel: 'Hyundai Elantra',
-          licensePlate: 'GHI-321',
-        },
-      ];
+        
+      // Clone the static drivers and update their positions
+      return STATIC_DRIVERS.map((driver, index) => ({
+        ...driver,
+        position: [
+          userLat + getRandomOffset(),
+          userLng + getRandomOffset()
+        ] as [number, number],
+        car: driver.carModel || 'Car',
+        rating: driver.rating || 4.5,
+        eta: driver.eta || '5 min',
+        price: driver.price || '0.003 ETH',
+      }));
     },
     [],
   );
@@ -186,9 +167,9 @@ const useMapLogic = ({
       timestamp: newRideRequest.timestamp,
     });
     setShowDrivers(true);
-    const mockDrivers = generateMockDrivers(userPosition);
-    setDrivers(mockDrivers);
-  }, [userPosition, pickup, destination, fareDetails, generateMockDrivers]);
+    const nearbyDrivers = getDriversNearby(userPosition);
+    setDrivers(nearbyDrivers);
+  }, [userPosition, pickup, destination, fareDetails, getDriversNearby]);
 
   // Cancel ride
   const cancelRide = useCallback(() => {
@@ -259,8 +240,8 @@ const useMapLogic = ({
           setIsLocating(false);
 
           // Generate mock drivers around user location
-          const mockDrivers = generateMockDrivers(newPos);
-          setDrivers(mockDrivers);
+          const nearbyDrivers = getDriversNearby(newPos);
+          setDrivers(nearbyDrivers);
         },
         (error) => {
           console.error('Error getting location:', error);
@@ -307,7 +288,7 @@ const useMapLogic = ({
     };
 
     tryGetLocation(true);
-  }, [checkGeolocationPermission, generateMockDrivers]);
+  }, [checkGeolocationPermission, getDriversNearby]);
 
   // Initial location fetch
   useEffect(() => {

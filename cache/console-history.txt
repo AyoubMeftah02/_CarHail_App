@@ -1,0 +1,4 @@
+cls
+await escrow.approveRelease()
+const escrow = await ethers.getContractAt("Escrow","0xYourContractAddress",passenger)
+const [_, passenger] = await ethers.getSigners()   

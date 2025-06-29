@@ -1,42 +1,65 @@
 import { Dialog, Transition } from '@headlessui/react';
-import { Fragment } from 'react';
+import { Fragment, useState, useEffect, useCallback } from 'react';
 import {
   ArrowPathIcon,
   WalletIcon,
   ExclamationTriangleIcon,
+  CheckCircleIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import { ethers } from 'ethers';
-import type { EscrowState, WalletState, Transaction } from '@/hooks/useEscrow';
+import type { EscrowState, WalletState, EscrowTransaction } from '@/types/escrow.types';
+import { ESCROW_ABI } from '@/ABI/Escrow';
 
 type PaymentModalProps = {
+  onRelease: () => Promise<void>;
+  // Callback to release funds to driver
+  
   showPaymentModal: boolean;
   onClose: () => void;
   paymentStep: 'connect' | 'deploy' | 'deposit' | 'complete';
   rideAmount: bigint;
   escrowState: EscrowState;
   walletState: WalletState;
-  transactions: Transaction[];
-  contractAddress: string | null;
+  transactions: EscrowTransaction[];
   isDeploying: boolean;
+  rideStatus: 'inProgress' | 'completed';
+  rideProgress: number;
   onConnectWallet: () => void;
   onDeployContract: () => void;
   onDeposit: () => void;
 };
 
 export default function PaymentModal({
+  onRelease,
+  
   showPaymentModal,
   onClose,
   paymentStep,
   rideAmount,
-  escrowState,
+  escrowState: initialEscrowState,
   walletState,
   transactions,
-  contractAddress,
   isDeploying,
   onConnectWallet,
   onDeployContract,
   onDeposit,
+  rideStatus,
+  rideProgress,
 }: PaymentModalProps) {
+  const [escrowState, setEscrowState] = useState<EscrowState>({
+    ...initialEscrowState,
+  });
+
+  const handleDeposit = async () => {
+    try {
+      await onDeposit();
+    } catch (error) {
+      console.error('Deposit failed:', error);
+      // Display error to user
+    }
+  };
+
   const renderStepContent = () => {
     switch (paymentStep) {
       case 'connect':
@@ -95,25 +118,36 @@ export default function PaymentModal({
               Deposit Funds
             </h3>
             <p className="mt-1 text-sm text-gray-500">
-              Deposit{' '}
-              <span className="font-semibold">
-                {ethers.formatEther(rideAmount)} ETH
-              </span>{' '}
-              into the escrow contract.
+              <div className="mt-4 space-y-2">
+                <p className="text-sm text-gray-600">
+                  Ride Amount: <span className="font-medium">{ethers.formatEther(rideAmount)} ETH</span>
+                </p>
+                <p className="text-sm font-semibold text-gray-800 pt-2 border-t">
+                  Total:{' '}
+                  <span className="font-bold">
+                    {ethers.formatEther(rideAmount)} ETH
+                  </span>
+                </p>
+              </div>
             </p>
             <div className="mt-5">
               <button
                 type="button"
                 className="inline-flex justify-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-                onClick={onDeposit}
-                disabled={escrowState.isDepositing}
+                onClick={handleDeposit}
+                disabled={false}
               >
-                {escrowState.isDepositing ? 'Depositing...' : 'Deposit Funds'}
+                Deposit Funds
               </button>
             </div>
           </div>
         );
       case 'complete':
+          {
+            /* Show release button if not yet completed */
+            const needRelease = !escrowState.isCompleted;
+          }
+
         return (
           <div className="text-center">
             <svg
@@ -134,12 +168,16 @@ export default function PaymentModal({
               Payment Successful!
             </h3>
             <p className="mt-1 text-sm text-gray-500">
-              Your ride is confirmed. Funds are held in escrow.
+              {rideStatus === 'inProgress' && `Ride in progress... (${rideProgress}%) Funds are locked in escrow.`}
+              {rideStatus === 'completed' &&
+                (escrowState.isCompleted
+                  ? 'Ride completed. Funds have been released to the driver.'
+                  : 'Ride completed. Releasing funds to the driver...')}
             </p>
-            <div className="mt-5">
+            <div className="mt-5 space-y-2">
               <button
                 type="button"
-                className="inline-flex justify-center rounded-md border border-transparent bg-green-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                className="inline-flex justify-center rounded-md border border-transparent bg-gray-300 px-4 py-2 text-sm font-medium text-gray-800 shadow-sm hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
                 onClick={onClose}
               >
                 Close
@@ -219,7 +257,7 @@ export default function PaymentModal({
                             <ExclamationTriangleIcon className="h-4 w-4 mr-2 text-red-500" />
                           )}
                           <span>
-                            {tx.description}:{' '}
+                            {tx.description ? `${tx.description}: ` : ''}
                             {tx.hash ? (
                               <a
                                 href={`https://sepolia.etherscan.io/tx/${tx.hash}`}
@@ -238,22 +276,7 @@ export default function PaymentModal({
                     </div>
                   </div>
                 )}
-
-                {contractAddress && (
-                  <div className="mt-4 text-sm text-gray-500 text-center">
-                    Escrow Contract:{' '}
-                    <a
-                      href={`https://sepolia.etherscan.io/address/${contractAddress}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
-                    >
-                      {contractAddress.substring(0, 6)}...{
-                        contractAddress.substring(38)
-                      }
-                    </a>
-                  </div>
-                )}
+                
               </Dialog.Panel>
             </Transition.Child>
           </div>

@@ -36,16 +36,7 @@ const Navbar: React.FC<NavbarProps> = ({ isScrolled = false }) => {
             >
               Home
             </Link>
-            <Link
-              to="/passengers"
-              className={`px-3 py-2 rounded-md text-sm font-medium ${
-                location.pathname === '/passengers'
-                  ? 'bg-gray-800 text-blue-400'
-                  : 'hover:bg-gray-800 hover:text-blue-300'
-              }`}
-            >
-              Passengers
-            </Link>
+
             <Link
               to="/drivers"
               className={`px-3 py-2 rounded-md text-sm font-medium ${
@@ -55,6 +46,26 @@ const Navbar: React.FC<NavbarProps> = ({ isScrolled = false }) => {
               }`}
             >
               Driver Verification
+            </Link>
+            <Link
+              to="/admin"
+              className={`px-3 py-2 rounded-md text-sm font-medium ${
+                location.pathname === '/admin'
+                  ? 'bg-gray-800 text-blue-400'
+                  : 'hover:bg-gray-800 hover:text-blue-300'
+              }`}
+            >
+              Admin
+            </Link>
+            <Link
+              to="/about"
+              className={`px-3 py-2 rounded-md text-sm font-medium ${
+                location.pathname === '/about'
+                  ? 'bg-gray-800 text-blue-400'
+                  : 'hover:bg-gray-800 hover:text-blue-300'
+              }`}
+            >
+              About Us
             </Link>
           </div>
         </div>

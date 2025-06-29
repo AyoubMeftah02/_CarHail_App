@@ -1,5 +1,5 @@
 import { ethers } from 'ethers';
-import { ESCROW_ABI } from '@/ABI/PayementABI';
+import { ESCROW_ABI, ESCROW_BYTECODE } from '@/ABI/Escrow';
 
 // Error types for blockchain operations
 export interface EthereumProviderError extends Error {
@@ -49,6 +49,7 @@ export class BlockchainService {
   async connectWallet(): Promise<{
     success: boolean;
     account?: string;
+    chainId?: number;
     error?: string;
   }> {
     try {
@@ -105,7 +106,7 @@ export class BlockchainService {
         }
       }
 
-      return { success: true, account };
+      return { success: true, account, chainId: Number(network.chainId) };
     } catch (error: unknown) {
       console.error('Error connecting wallet:', error);
       return {
@@ -130,7 +131,7 @@ export class BlockchainService {
 
       const contractFactory = new ethers.ContractFactory(
         ESCROW_ABI,
-        '',
+        ESCROW_BYTECODE,
         this.signer,
       );
       const contract = await contractFactory.deploy(

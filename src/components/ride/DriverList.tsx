@@ -1,4 +1,4 @@
-import { ArrowPathIcon, UserIcon } from '@heroicons/react/24/outline';
+import { ArrowPathIcon, UserIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import type { Driver } from '@/types/ride';
 import DriverCard from './DriverCard';
 
@@ -6,38 +6,47 @@ type DriverListProps = {
   drivers: Driver[];
   isLoading: boolean;
   searchQuery: string;
+  setSearchQuery: (query: string) => void;
   selectedDriver: Driver | null;
   onSelectDriver: (driver: Driver) => void;
   onRefresh: () => void;
-  onClearSearch: (query?: string) => void;
 };
 
 export default function DriverList({
   drivers,
   isLoading,
   searchQuery,
+  setSearchQuery,
   selectedDriver,
   onSelectDriver,
   onRefresh,
-  onClearSearch,
 }: DriverListProps) {
   return (
     <div className="overflow-y-auto h-[calc(100vh-180px)] pr-2">
-      {/* Search input and refresh button */}
       <div className="flex items-center justify-between mb-2 gap-2">
-        <input
-          type="text"
-          value={searchQuery}
-          onChange={(e) =>
-            onClearSearch ? onClearSearch(e.target.value) : undefined
-          }
-          placeholder="Search drivers by name, car, or plate..."
-          className="w-full max-w-xs px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-        />
+        <div className="relative w-full max-w-xs">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search drivers..."
+            className="w-full pl-3 pr-8 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+          />
+          {searchQuery && (
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-600"
+              aria-label="Clear search"
+            >
+              <XMarkIcon className="h-4 w-4" />
+            </button>
+          )}
+        </div>
         <button
           type="button"
           onClick={onRefresh}
-          className="p-2 text-gray-500 hover:text-gray-700 transition-colors"
+          className="p-2 text-gray-500 hover:text-gray-700 transition-colors flex-shrink-0"
           title="Refresh drivers"
         >
           <ArrowPathIcon className="h-5 w-5" />
@@ -73,18 +82,9 @@ export default function DriverList({
           </h3>
           <p className="text-gray-500 max-w-md">
             {searchQuery
-              ? 'Try adjusting your search or remove filters.'
+              ? 'Try adjusting your search or click the refresh button.'
               : 'Please check back later or try refreshing the list.'}
           </p>
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => onClearSearch('')}
-              className="mt-4 text-sm font-medium text-green-600 hover:text-green-700"
-            >
-              Clear search
-            </button>
-          )}
         </div>
       ) : (
         <div className="space-y-3">

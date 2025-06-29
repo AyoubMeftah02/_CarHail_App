@@ -3,11 +3,12 @@ import 'leaflet/dist/leaflet.css';
 import ReactDOM from 'react-dom/client';
 
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Home from '@/_pages/Home';
-import BookRide from '@/_pages/BookRide';
-import PassengersPage from '@/_pages/Passengers';
-import DriverVerificationPage from '@/_pages/DriverVerification';
-import Authentication from '@/_pages/Authentication';
+import Home from "@/_pages/home";
+import BookRide from "@/_pages/BookRide";
+import DriverVerificationPage from "@/_pages/DriverVerification";
+import Authentication from "@/_pages/Authentication";
+import AdminDashboard from "@/_pages/AdminDashboard"; 
+import AboutUs from "@/_pages/AboutUs";
 import { WalletProvider, useWallet } from '@/providers/WalletProvider';
 
 const AppRoutes = () => {
@@ -23,8 +24,9 @@ const AppRoutes = () => {
         <>
           <Route path="/home" element={<Home />} />
           <Route path="/book-ride" element={<BookRide />} />
-          <Route path="/passengers" element={<PassengersPage />} />
           <Route path="/drivers" element={<DriverVerificationPage />} />
+          <Route path="/admin" element={<AdminDashboard />} /> 
+          <Route path="/about" element={<AboutUs />} />
           <Route path="*" element={<Navigate to="/home" replace />} />
         </>
       ) : (

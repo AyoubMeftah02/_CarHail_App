@@ -11,6 +11,11 @@ export interface Driver {
   image?: string;
   initials?: string;
   car?: string;
+  createdAt?: string;
+  ethAddress?: string; // Ethereum address assigned after verification
+  licenseId?: string;
+  issueDate?: string;
+  expiryDate?: string;
   // Map-related properties
   position?: LatLngExpression;
   price?: string;

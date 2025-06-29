@@ -4,7 +4,7 @@ import { useEscrow } from '@/hooks/useEscrow';
 import type { RideDetails } from '@/types/escrow.types';
 
 const RideBooking: React.FC = () => {
-  const { walletState, connectWallet, depositForRide, transactions } =
+  const { walletState, connectWallet, depositForRide, transactions, escrowState } =
     useEscrow();
 
   const [rideDetails, setRideDetails] = useState<RideDetails>({
@@ -122,6 +122,15 @@ const RideBooking: React.FC = () => {
           {isLoading || isPending ? 'Processing...' : 'Book Ride'}
         </button>
       </form>
+
+      {/* Display escrow state */}
+      {escrowState && (
+        <div className="escrow-info mt-6">
+          <p>Escrow Amount: {ethers.formatEther(escrowState.amount)} ETH</p>
+          <p>Completion Status: {escrowState.isCompleted ? 'Completed' : 'Pending'}</p>
+          {/* Additional actions based on state can be added here */}
+        </div>
+      )}
     </div>
   );
 };

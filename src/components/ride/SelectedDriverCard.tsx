@@ -51,11 +51,11 @@ export default function SelectedDriverCard({
       </div>
       <button
         onClick={onPayClick}
-        className="w-full bg-green-600 text-white py-3 rounded-lg font-semibold text-lg shadow-md hover:bg-green-700 transition-colors flex items-center justify-center"
+        className="w-3/4 bg-green-600 text-white py-2 rounded-md font-semibold text-base shadow-md hover:bg-green-700 transition-colors flex items-center justify-center"
       >
-        <WalletIcon className="h-6 w-6 mr-2" />
+        <WalletIcon className="h-5 w-5 mr-2" />
         Pay Now
-        <ArrowRightIcon className="h-5 w-5 ml-2" />
+        <ArrowRightIcon className="h-4 w-4 ml-2" />
       </button>
     </div>
   );

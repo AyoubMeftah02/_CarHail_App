@@ -111,11 +111,20 @@ export interface EscrowInterface extends Interface {
 }
 
 export namespace DepositedEvent {
-  export type InputTuple = [passenger: AddressLike, amount: BigNumberish];
-  export type OutputTuple = [passenger: string, amount: bigint];
+  export type InputTuple = [
+    passenger: AddressLike,
+    amount: BigNumberish,
+    timestamp: BigNumberish
+  ];
+  export type OutputTuple = [
+    passenger: string,
+    amount: bigint,
+    timestamp: bigint
+  ];
   export interface OutputObject {
     passenger: string;
     amount: bigint;
+    timestamp: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -124,11 +133,20 @@ export namespace DepositedEvent {
 }
 
 export namespace RefundedEvent {
-  export type InputTuple = [passenger: AddressLike, amount: BigNumberish];
-  export type OutputTuple = [passenger: string, amount: bigint];
+  export type InputTuple = [
+    passenger: AddressLike,
+    amount: BigNumberish,
+    timestamp: BigNumberish
+  ];
+  export type OutputTuple = [
+    passenger: string,
+    amount: bigint,
+    timestamp: bigint
+  ];
   export interface OutputObject {
     passenger: string;
     amount: bigint;
+    timestamp: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -137,11 +155,26 @@ export namespace RefundedEvent {
 }
 
 export namespace ReleasedEvent {
-  export type InputTuple = [driver: AddressLike, amount: BigNumberish];
-  export type OutputTuple = [driver: string, amount: bigint];
+  export type InputTuple = [
+    driver: AddressLike,
+    amount: BigNumberish,
+    fee: BigNumberish,
+    feeRecipient: AddressLike,
+    timestamp: BigNumberish
+  ];
+  export type OutputTuple = [
+    driver: string,
+    amount: bigint,
+    fee: bigint,
+    feeRecipient: string,
+    timestamp: bigint
+  ];
   export interface OutputObject {
     driver: string;
     amount: bigint;
+    fee: bigint;
+    feeRecipient: string;
+    timestamp: bigint;
   }
   export type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
   export type Filter = TypedDeferredTopicFilter<Event>;
@@ -280,7 +313,7 @@ export interface Escrow extends BaseContract {
   >;
 
   filters: {
-    "Deposited(address,uint256)": TypedContractEvent<
+    "Deposited(address,uint256,uint256)": TypedContractEvent<
       DepositedEvent.InputTuple,
       DepositedEvent.OutputTuple,
       DepositedEvent.OutputObject
@@ -291,7 +324,7 @@ export interface Escrow extends BaseContract {
       DepositedEvent.OutputObject
     >;
 
-    "Refunded(address,uint256)": TypedContractEvent<
+    "Refunded(address,uint256,uint256)": TypedContractEvent<
       RefundedEvent.InputTuple,
       RefundedEvent.OutputTuple,
       RefundedEvent.OutputObject
@@ -302,7 +335,7 @@ export interface Escrow extends BaseContract {
       RefundedEvent.OutputObject
     >;
 
-    "Released(address,uint256)": TypedContractEvent<
+    "Released(address,uint256,uint256,address,uint256)": TypedContractEvent<
       ReleasedEvent.InputTuple,
       ReleasedEvent.OutputTuple,
       ReleasedEvent.OutputObject

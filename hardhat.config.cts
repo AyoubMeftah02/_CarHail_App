@@ -16,6 +16,12 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 200,
       },
+      // Force recompilation
+      outputSelection: {
+        "*": {
+          "*": ["*"],
+        },
+      },
     },
   },
   networks: {
@@ -42,7 +48,7 @@ const config: HardhatUserConfig = {
     dontOverrideCompile: false,
   },
   paths: {
-    sources: "./contract",
+    sources: "./contracts",
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts",
